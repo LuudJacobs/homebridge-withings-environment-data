@@ -1,0 +1,75 @@
+{
+  "pluginAlias": "WithingsEnvironmentData",
+  "pluginType": "platform",
+  "singular": true,
+  "headerDisplay": "Exposes ambient CO2/air-quality and room temperature from a Withings WS-50 scale as HomeKit sensors. This data isn't available through the official Withings API, so this plugin authenticates the same way the Health Mate web app does. See the README for how to capture the config values below via browser DevTools.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "Withings Environment",
+        "required": true
+      },
+      "email": {
+        "title": "Withings Email",
+        "type": "string",
+        "required": true
+      },
+      "password": {
+        "title": "Withings Password",
+        "type": "string",
+        "required": true,
+        "x-schema-form": {
+          "type": "password"
+        }
+      },
+      "wUuid": {
+        "title": "Device UUID (w_uuid cookie)",
+        "type": "string",
+        "required": true,
+        "description": "From DevTools: Application -> Cookies -> account.withings.com -> w_uuid"
+      },
+      "trustCookieName": {
+        "title": "Trust Cookie Name",
+        "type": "string",
+        "required": true,
+        "description": "The cookie named 2fa_token_<long hex hash> under account.withings.com — copy its full name here"
+      },
+      "trustCookieValue": {
+        "title": "Trust Cookie Value",
+        "type": "string",
+        "required": true,
+        "description": "The value of that same 2fa_token_<hash> cookie"
+      },
+      "deviceId": {
+        "title": "Device ID",
+        "type": "string",
+        "required": true
+      },
+      "userId": {
+        "title": "User ID",
+        "type": "string",
+        "required": true
+      },
+      "appliver": {
+        "title": "App Build ID (appliver)",
+        "type": "string",
+        "required": true
+      },
+      "pollIntervalMinutes": {
+        "title": "Poll Interval (minutes)",
+        "type": "integer",
+        "default": 30,
+        "minimum": 5
+      },
+      "co2DetectedThresholdPpm": {
+        "title": "CO2 Detected Threshold (ppm)",
+        "type": "integer",
+        "default": 1000,
+        "minimum": 400
+      }
+    }
+  }
+}
