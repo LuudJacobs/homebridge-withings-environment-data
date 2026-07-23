@@ -25,12 +25,6 @@
           "type": "password"
         }
       },
-      "wUuid": {
-        "title": "Device UUID (w_uuid cookie)",
-        "type": "string",
-        "required": true,
-        "description": "From DevTools: Application -> Cookies -> account.withings.com -> w_uuid"
-      },
       "trustCookieName": {
         "title": "Trust Cookie Name",
         "type": "string",
@@ -42,21 +36,6 @@
         "type": "string",
         "required": true,
         "description": "The value of that same 2fa_token_<hash> cookie"
-      },
-      "deviceId": {
-        "title": "Device ID",
-        "type": "string",
-        "required": true
-      },
-      "userId": {
-        "title": "User ID",
-        "type": "string",
-        "required": true
-      },
-      "appliver": {
-        "title": "App Build ID (appliver)",
-        "type": "string",
-        "required": true
       },
       "pollIntervalMinutes": {
         "title": "Poll Interval (minutes)",

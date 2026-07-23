@@ -42,29 +42,24 @@ Withings Environment Data -> Settings). Fields:
 
 - **Withings Email / Password** — your account credentials. Used only
   against `account.withings.com`'s own login form.
-- **Device UUID (w_uuid cookie)** and **Trust Cookie Name / Value** — capture
-  these once via DevTools:
+- **Trust Cookie Name / Value** — capture this once via DevTools:
   1. Log into [account.withings.com](https://account.withings.com) in a
      browser, making sure to check **"trust this device"** when prompted for
      a 2FA code.
   2. Open DevTools -> **Application** tab -> **Cookies** ->
      `account.withings.com`.
-  3. Copy the value of the `w_uuid` cookie into **Device UUID**.
-  4. Find the cookie named `2fa_token_<a long hex hash>` -> copy its full
+  3. Find the cookie named `2fa_token_<a long hex hash>` -> copy its full
      name into **Trust Cookie Name** and its value into **Trust Cookie
-     Value**. This one, not `w_uuid`, is what actually signals "this device
-     already passed 2FA" — its name stays stable across logins even though
-     its value doesn't.
+     Value**. This is what actually signals "this device already passed
+     2FA" — its name stays stable across logins even though its value
+     doesn't.
 
-  As long as these are reused, the plugin's automated logins skip the 2FA
+  As long as this is reused, the plugin's automated logins skip the 2FA
   prompt.
-- **Device ID / User ID** — your account/scale's static identifiers. Get
-  them via DevTools: open the Health Mate air quality view, find the
-  request to `scalews.withings.com/cgi-bin/v2/measure` in the Network tab,
-  and read `deviceid`/`userid` out of its request body.
-- **App Build ID (appliver)** — the `appliver` value from that same request
-  body. If the plugin starts failing across the board, this is one of the
-  first things to recheck against a fresh capture.
+
+  Your scale's device/user identifiers are discovered automatically on the
+  first successful login (no DevTools hunting needed for those) and cached
+  for the life of the Homebridge process.
 - **Poll Interval (minutes)** — how often to fetch new readings (default 30,
   matching the scale's own upload cadence).
 - **CO2 Detected Threshold (ppm)** — ppm above which the CarbonDioxideSensor
@@ -80,11 +75,10 @@ indicator appears on the sensors until this is fixed. Fix:
 
 1. Log into `account.withings.com` manually in a browser, checking "trust
    this device" during the 2FA step.
-2. Grab the fresh `w_uuid` and `2fa_token_<hash>` values the same way as in
+2. Grab the fresh `2fa_token_<hash>` cookie value the same way as in
    Configuration.
-3. Update the **Device UUID** and **Trust Cookie Value** fields in the
-   plugin's Config UI settings (the **Trust Cookie Name** itself should stay
-   the same).
+3. Update the **Trust Cookie Value** field in the plugin's Config UI
+   settings (the **Trust Cookie Name** itself should stay the same).
 
 Any other poll failure (network error, unexpected response) is logged the
 same way — an error in the Homebridge log, a fault indicator on the
