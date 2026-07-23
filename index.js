@@ -1,4 +1,5 @@
 const { login } = require('./lib/login');
+const { discoverDevice } = require('./lib/discover');
 
 const MEASURE_URL = 'https://scalews.withings.com/cgi-bin/v2/measure';
 // Reverse-engineered/unofficial: not part of the documented Withings API.
@@ -12,7 +13,7 @@ const WINDOW_HOURS = 48;
 
 const PLATFORM_NAME = 'WithingsEnvironmentData';
 
-async function fetchLatest({ cookieHeader, sessionToken, deviceId, userId, appliver }) {
+async function fetchLatest({ cookieHeader, sessionToken, deviceId, userId }) {
   const enddate = Math.floor(Date.now() / 1000);
   const startdate = enddate - WINDOW_HOURS * 3600;
 
@@ -25,7 +26,6 @@ async function fetchLatest({ cookieHeader, sessionToken, deviceId, userId, appli
     enddate: String(enddate),
     appname: APPNAME,
     apppfm: APPPFM,
-    appliver,
     session_token: sessionToken,
   }).toString();
 
@@ -75,6 +75,11 @@ class WithingsEnvironmentDataPlatform {
     this.Service = api.hap.Service;
     this.Characteristic = api.hap.Characteristic;
     this.accessories = [];
+    // Discovered automatically from the Withings association endpoint on first
+    // successful login, rather than requiring the user to hunt for these in
+    // DevTools — see lib/discover.js.
+    this.deviceId = null;
+    this.userId = null;
 
     this.api.on('didFinishLaunching', () => this.discoverDevices());
   }
@@ -98,12 +103,12 @@ class WithingsEnvironmentDataPlatform {
   }
 
   setupServices(accessory) {
-    const info = accessory.getService(this.Service.AccessoryInformation);
-    if (info) {
-      info
+    this.infoService = accessory.getService(this.Service.AccessoryInformation);
+    if (this.infoService) {
+      this.infoService
         .setCharacteristic(this.Characteristic.Manufacturer, 'Withings')
         .setCharacteristic(this.Characteristic.Model, 'WS-50')
-        .setCharacteristic(this.Characteristic.SerialNumber, String(this.config.deviceId ?? 'unknown'));
+        .setCharacteristic(this.Characteristic.SerialNumber, 'pending discovery');
     }
 
     this.co2Service =
@@ -132,17 +137,25 @@ class WithingsEnvironmentDataPlatform {
       const { cookieHeader, sessionToken } = await login(
         this.config.email,
         this.config.password,
-        this.config.wUuid,
         this.config.trustCookieName,
         this.config.trustCookieValue
       );
 
+      if (!this.deviceId || !this.userId) {
+        const discovered = await discoverDevice(cookieHeader);
+        this.deviceId = discovered.deviceId;
+        this.userId = discovered.userId;
+        this.log.info(`Discovered Withings device ${this.deviceId} for user ${this.userId}`);
+        if (this.infoService) {
+          this.infoService.setCharacteristic(this.Characteristic.SerialNumber, this.deviceId);
+        }
+      }
+
       const { co2, temperature } = await fetchLatest({
         cookieHeader,
         sessionToken,
-        deviceId: this.config.deviceId,
-        userId: this.config.userId,
-        appliver: this.config.appliver,
+        deviceId: this.deviceId,
+        userId: this.userId,
       });
 
       this.applyReading(co2, temperature);
