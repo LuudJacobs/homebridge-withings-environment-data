@@ -48,6 +48,13 @@
         "type": "integer",
         "default": 1000,
         "minimum": 400
+      },
+      "noResponseAfterMissedPolls": {
+        "title": "No Response After Missed Polls",
+        "type": "integer",
+        "default": 2,
+        "minimum": 0,
+        "description": "Consecutive failed polls to tolerate (keeping the last known readings) before the Home app shows \"No Response\". 0 means show it immediately on any failure."
       }
     }
   }
