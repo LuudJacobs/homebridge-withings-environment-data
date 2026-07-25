@@ -93,6 +93,9 @@ class WithingsEnvironmentDataPlatform {
     this.hasEverSucceeded = false;
     this.missedCycles = 0;
     this.lastReading = { co2: null, temperature: null };
+    // Only send one ntfy notification per failure streak, not on every
+    // missed poll — reset once a poll succeeds again.
+    this.hasNotifiedFailure = false;
 
     // The long-lived (~1 week) session_key that lets us skip email/password/2FA
     // entirely on most polls — see lib/login.js's resumeSession(). Persisted to
@@ -235,6 +238,7 @@ class WithingsEnvironmentDataPlatform {
       this.applyReading(co2, temperature);
       this.setFault(false);
       this.missedCycles = 0;
+      this.hasNotifiedFailure = false;
     } catch (err) {
       // Deliberately do not touch the value characteristics here — the Home app
       // should keep showing the last known good reading, not go blank, on a
@@ -245,6 +249,26 @@ class WithingsEnvironmentDataPlatform {
       this.missedCycles += 1;
       this.log.error(`Withings poll failed (missed cycle ${this.missedCycles}): ${err.message}`);
       this.setFault(true);
+
+      if (!this.hasNotifiedFailure) {
+        this.hasNotifiedFailure = true;
+        await this.sendNtfyNotification(err.message);
+      }
+    }
+  }
+
+  async sendNtfyNotification(errorMessage) {
+    const topic = this.config.ntfyTopic;
+    if (!topic) return;
+
+    try {
+      await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
+        method: 'POST',
+        headers: { Title: 'Homebridge: Getting Withings Environment Data Failed!' },
+        body: `${errorMessage}\n\nThe Home app will keep showing the last known reading until this is resolved.`,
+      });
+    } catch (err) {
+      this.log.warn(`Failed to send ntfy notification: ${err.message}`);
     }
   }
 

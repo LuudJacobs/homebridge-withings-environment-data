@@ -54,6 +54,11 @@ Fields:
   matching the scale's own upload cadence).
 - **CO2 Detected Threshold (ppm)**: ppm above which the CarbonDioxideSensor
   reports "abnormal" (default 1000).
+- **ntfy Topic (optional)**: if set, sends a push notification via
+  [ntfy.sh](https://ntfy.sh) to this topic the first time a poll fails
+  (not repeated on every subsequent failure in the same streak — only once
+  a poll succeeds again does the next failure trigger a fresh
+  notification). Leave blank to disable.
 
 ## How authentication works
 
