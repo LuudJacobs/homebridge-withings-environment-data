@@ -62,11 +62,9 @@ Fields:
 
 ## How authentication works
 
-Logging in with email and password on every poll turned out to be a bad
-idea in practice: Withings appears to throttle repeated automated logins
-quite aggressively. Instead, the plugin reuses a long-lived (~1 week)
-`session_key` that Withings' own web app relies on to stay logged in
-without re-entering credentials each time.
+The plugin reuses a long-lived (~1 week) `session_key`, the same
+mechanism Withings' own web app relies on to stay logged in without
+re-entering credentials each time.
 
 That session is cached in a small file in Homebridge's own storage
 directory, `withings-environment-data-session.json`, and reused across
