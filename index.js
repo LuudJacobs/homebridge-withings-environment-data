@@ -81,6 +81,15 @@ class WithingsEnvironmentDataPlatform {
     this.deviceId = null;
     this.userId = null;
 
+    // Cached last-known reading, served by the onGet handlers below so the
+    // Home app keeps showing real data through transient poll failures.
+    // Only once missedCycles exceeds the configured threshold do those
+    // handlers throw, which is what actually makes the Home app show
+    // "No Response" (StatusFault alone isn't reliably surfaced there).
+    this.hasEverSucceeded = false;
+    this.missedCycles = 0;
+    this.lastReading = { co2: null, temperature: null };
+
     this.api.on('didFinishLaunching', () => this.discoverDevices());
   }
 
@@ -122,6 +131,19 @@ class WithingsEnvironmentDataPlatform {
     this.temperatureService =
       accessory.getService(this.Service.TemperatureSensor) ||
       accessory.addService(this.Service.TemperatureSensor, 'Temperature', 'temperature');
+
+    this.co2Service
+      .getCharacteristic(this.Characteristic.CarbonDioxideLevel)
+      .onGet(() => this.getCo2LevelOrThrow());
+    this.co2Service
+      .getCharacteristic(this.Characteristic.CarbonDioxideDetected)
+      .onGet(() => this.getCo2DetectedOrThrow());
+    this.airQualityService
+      .getCharacteristic(this.Characteristic.AirQuality)
+      .onGet(() => this.getAirQualityOrThrow());
+    this.temperatureService
+      .getCharacteristic(this.Characteristic.CurrentTemperature)
+      .onGet(() => this.getTemperatureOrThrow());
   }
 
   startPolling() {
@@ -160,20 +182,68 @@ class WithingsEnvironmentDataPlatform {
 
       this.applyReading(co2, temperature);
       this.setFault(false);
+      this.missedCycles = 0;
     } catch (err) {
       // Deliberately do not touch the value characteristics here — the Home app
-      // should keep showing the last known good reading, not go blank, when a
-      // poll fails (e.g. the trust cookie expired and login needs recapturing).
-      this.log.error(`Withings poll failed: ${err.message}`);
+      // should keep showing the last known good reading, not go blank, on a
+      // single poll failure (e.g. the trust cookie expired and login needs
+      // recapturing). Only once missedCycles crosses the configured threshold
+      // do the onGet handlers below start throwing, which is what actually
+      // surfaces "No Response" in the Home app.
+      this.missedCycles += 1;
+      this.log.error(`Withings poll failed (missed cycle ${this.missedCycles}): ${err.message}`);
       this.setFault(true);
     }
   }
 
-  applyReading(co2, temperature) {
+  getCo2Threshold() {
     const threshold = Number(this.config.co2DetectedThresholdPpm);
-    const co2Threshold = Number.isFinite(threshold) && threshold > 0 ? threshold : 1000;
+    return Number.isFinite(threshold) && threshold > 0 ? threshold : 1000;
+  }
+
+  getNoResponseThreshold() {
+    const threshold = Number(this.config.noResponseAfterMissedPolls);
+    return Number.isFinite(threshold) && threshold >= 0 ? threshold : 2;
+  }
+
+  isStale() {
+    return !this.hasEverSucceeded || this.missedCycles > this.getNoResponseThreshold();
+  }
+
+  throwIfStale() {
+    if (this.isStale()) {
+      throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+    }
+  }
+
+  getCo2LevelOrThrow() {
+    this.throwIfStale();
+    return this.lastReading.co2;
+  }
+
+  getCo2DetectedOrThrow() {
+    this.throwIfStale();
+    return this.lastReading.co2 > this.getCo2Threshold()
+      ? this.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
+      : this.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL;
+  }
+
+  getAirQualityOrThrow() {
+    this.throwIfStale();
+    return mapCo2ToAirQuality(this.lastReading.co2, this.Characteristic.AirQuality);
+  }
+
+  getTemperatureOrThrow() {
+    this.throwIfStale();
+    return this.lastReading.temperature;
+  }
+
+  applyReading(co2, temperature) {
+    const co2Threshold = this.getCo2Threshold();
 
     if (co2 !== null && co2 !== undefined) {
+      this.lastReading.co2 = co2;
+      this.hasEverSucceeded = true;
       this.co2Service.updateCharacteristic(this.Characteristic.CarbonDioxideLevel, co2);
       this.co2Service.updateCharacteristic(
         this.Characteristic.CarbonDioxideDetected,
@@ -188,6 +258,8 @@ class WithingsEnvironmentDataPlatform {
     }
 
     if (temperature !== null && temperature !== undefined) {
+      this.lastReading.temperature = temperature;
+      this.hasEverSucceeded = true;
       this.temperatureService.updateCharacteristic(this.Characteristic.CurrentTemperature, temperature);
     }
   }
