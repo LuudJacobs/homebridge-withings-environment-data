@@ -265,7 +265,7 @@ class WithingsEnvironmentDataPlatform {
       await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
         method: 'POST',
         headers: { Title: 'Homebridge: Getting Withings Environment Data Failed!' },
-        body: `${errorMessage}\n\nThe Home app will keep showing the last known reading until this is resolved.`,
+        body: errorMessage,
       });
     } catch (err) {
       this.log.warn(`Failed to send ntfy notification: ${err.message}`);
