@@ -55,13 +55,34 @@ Fields:
 - **CO2 Detected Threshold (ppm)**: ppm above which the CarbonDioxideSensor
   reports "abnormal" (default 1000).
 
+## How authentication works
+
+Logging in with email and password on every poll turned out to be a bad
+idea in practice: Withings appears to throttle repeated automated logins
+quite aggressively. Instead, the plugin reuses a long-lived (~1 week)
+`session_key` that Withings' own web app relies on to stay logged in
+without re-entering credentials each time.
+
+That session is cached in a small file in Homebridge's own storage
+directory, `withings-environment-data-session.json`, and reused across
+polls and restarts. Email/password only get used as a fallback, the rare
+times that cached session actually expires, and the fresh session that
+fallback produces is automatically written back to the same file for next
+time. In normal operation the plugin should hit the password endpoint very
+infrequently, roughly weekly at most.
+
 ## When it stops working
 
-If the Homebridge log shows a "session not trusted (landed on confirm_totp)"
-error, the device-trust cookie has been invalidated (e.g. after a password
-change, or Withings revoking trusted devices). The Home app will keep
-showing the last known good reading, it won't go blank, but a fault
-indicator appears on the sensors until this is fixed. Fix:
+Most of the time this is self-healing: if the cached session has expired,
+the plugin automatically falls back to a full login and caches the new
+session it gets back, no action needed. A fault indicator appears on the
+sensors during a failed poll, but the Home app keeps showing the last known
+good reading rather than going blank.
+
+If the Homebridge log instead shows a "session not trusted (landed on
+confirm_totp)" error, the *trust cookie* itself has been invalidated (e.g.
+after a password change, or Withings revoking trusted devices) — this is
+what the fallback login relies on, so it can't self-heal on its own. Fix:
 
 1. Recapture the trust cookie: see [Getting the trust
    cookie](#getting-the-trust-cookie) below.
