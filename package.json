@@ -1,6 +1,6 @@
 {
   "name": "homebridge-withings-environment-data",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Homebridge plugin exposing ambient CO2/air-quality and room temperature readings from a Withings WS-50 scale as HomeKit sensors",
   "main": "index.js",
   "files": [
@@ -9,7 +9,14 @@
     "config.schema.json"
   ],
   "keywords": [
-    "homebridge-plugin"
+    "homebridge-plugin",
+    "withings",
+    "ws-50",
+    "environment-data",
+    "temperature",
+    "co2",
+    "air-quality",
+    "homekit"
   ],
   "engines": {
     "homebridge": ">=1.6.0",

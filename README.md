@@ -54,14 +54,17 @@ Fields:
   matching the scale's own upload cadence).
 - **CO2 Detected Threshold (ppm)**: ppm above which the CarbonDioxideSensor
   reports "abnormal" (default 1000).
+- **ntfy Topic (optional)**: if set, sends a push notification via
+  [ntfy.sh](https://ntfy.sh) to this topic the first time a poll fails
+  (not repeated on every subsequent failure in the same streak — only once
+  a poll succeeds again does the next failure trigger a fresh
+  notification). Leave blank to disable.
 
 ## How authentication works
 
-Logging in with email and password on every poll turned out to be a bad
-idea in practice: Withings appears to throttle repeated automated logins
-quite aggressively. Instead, the plugin reuses a long-lived (~1 week)
-`session_key` that Withings' own web app relies on to stay logged in
-without re-entering credentials each time.
+The plugin reuses a long-lived (~1 week) `session_key`, the same
+mechanism Withings' own web app relies on to stay logged in without
+re-entering credentials each time.
 
 That session is cached in a small file in Homebridge's own storage
 directory, `withings-environment-data-session.json`, and reused across
