@@ -1,5 +1,9 @@
-const { login } = require('./lib/login');
+const fs = require('fs');
+const path = require('path');
+const { login, resumeSession } = require('./lib/login');
 const { discoverDevice } = require('./lib/discover');
+
+const SESSION_STATE_FILENAME = 'withings-environment-data-session.json';
 
 const MEASURE_URL = 'https://scalews.withings.com/cgi-bin/v2/measure';
 // Reverse-engineered/unofficial: not part of the documented Withings API.
@@ -81,7 +85,69 @@ class WithingsEnvironmentDataPlatform {
     this.deviceId = null;
     this.userId = null;
 
+    // Cached last-known reading, served by the onGet handlers below so the
+    // Home app keeps showing real data through transient poll failures.
+    // Only once missedCycles exceeds the configured threshold do those
+    // handlers throw, which is what actually makes the Home app show
+    // "No Response" (StatusFault alone isn't reliably surfaced there).
+    this.hasEverSucceeded = false;
+    this.missedCycles = 0;
+    this.lastReading = { co2: null, temperature: null };
+
+    // The long-lived (~1 week) session_key that lets us skip email/password/2FA
+    // entirely on most polls — see lib/login.js's resumeSession(). Persisted to
+    // disk so it survives Homebridge restarts, and only a full login() refreshes
+    // it, since repeatedly hitting the password endpoint appears to be heavily
+    // throttled by Withings.
+    this.sessionStatePath = path.join(this.api.user.storagePath(), SESSION_STATE_FILENAME);
+    this.sessionKey = this.loadSessionKey();
+
     this.api.on('didFinishLaunching', () => this.discoverDevices());
+  }
+
+  loadSessionKey() {
+    try {
+      const raw = fs.readFileSync(this.sessionStatePath, 'utf8');
+      return JSON.parse(raw).sessionKey ?? null;
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        this.log.warn(`Could not read session state file: ${err.message}`);
+      }
+      return null;
+    }
+  }
+
+  saveSessionKey(sessionKey) {
+    try {
+      fs.writeFileSync(this.sessionStatePath, JSON.stringify({ sessionKey }));
+    } catch (err) {
+      this.log.warn(`Could not persist session state file: ${err.message}`);
+    }
+  }
+
+  async authenticate() {
+    if (this.sessionKey) {
+      try {
+        return await resumeSession(this.sessionKey, this.config.trustCookieName, this.config.trustCookieValue);
+      } catch (err) {
+        this.log.warn(`Withings session resume failed, falling back to full login: ${err.message}`);
+      }
+    }
+
+    const result = await login(
+      this.config.email,
+      this.config.password,
+      this.config.trustCookieName,
+      this.config.trustCookieValue
+    );
+
+    if (result.sessionKey && result.sessionKey !== this.sessionKey) {
+      this.sessionKey = result.sessionKey;
+      this.saveSessionKey(result.sessionKey);
+      this.log.info('Withings full login succeeded; cached the new session for future polls.');
+    }
+
+    return result;
   }
 
   configureAccessory(accessory) {
@@ -122,6 +188,19 @@ class WithingsEnvironmentDataPlatform {
     this.temperatureService =
       accessory.getService(this.Service.TemperatureSensor) ||
       accessory.addService(this.Service.TemperatureSensor, 'Temperature', 'temperature');
+
+    this.co2Service
+      .getCharacteristic(this.Characteristic.CarbonDioxideLevel)
+      .onGet(() => this.getCo2LevelOrThrow());
+    this.co2Service
+      .getCharacteristic(this.Characteristic.CarbonDioxideDetected)
+      .onGet(() => this.getCo2DetectedOrThrow());
+    this.airQualityService
+      .getCharacteristic(this.Characteristic.AirQuality)
+      .onGet(() => this.getAirQualityOrThrow());
+    this.temperatureService
+      .getCharacteristic(this.Characteristic.CurrentTemperature)
+      .onGet(() => this.getTemperatureOrThrow());
   }
 
   startPolling() {
@@ -134,12 +213,7 @@ class WithingsEnvironmentDataPlatform {
 
   async poll() {
     try {
-      const { cookieHeader, sessionToken } = await login(
-        this.config.email,
-        this.config.password,
-        this.config.trustCookieName,
-        this.config.trustCookieValue
-      );
+      const { cookieHeader, sessionToken } = await this.authenticate();
 
       if (!this.deviceId || !this.userId) {
         const discovered = await discoverDevice(cookieHeader);
@@ -160,20 +234,68 @@ class WithingsEnvironmentDataPlatform {
 
       this.applyReading(co2, temperature);
       this.setFault(false);
+      this.missedCycles = 0;
     } catch (err) {
       // Deliberately do not touch the value characteristics here — the Home app
-      // should keep showing the last known good reading, not go blank, when a
-      // poll fails (e.g. the trust cookie expired and login needs recapturing).
-      this.log.error(`Withings poll failed: ${err.message}`);
+      // should keep showing the last known good reading, not go blank, on a
+      // single poll failure (e.g. the trust cookie expired and login needs
+      // recapturing). Only once missedCycles crosses the configured threshold
+      // do the onGet handlers below start throwing, which is what actually
+      // surfaces "No Response" in the Home app.
+      this.missedCycles += 1;
+      this.log.error(`Withings poll failed (missed cycle ${this.missedCycles}): ${err.message}`);
       this.setFault(true);
     }
   }
 
-  applyReading(co2, temperature) {
+  getCo2Threshold() {
     const threshold = Number(this.config.co2DetectedThresholdPpm);
-    const co2Threshold = Number.isFinite(threshold) && threshold > 0 ? threshold : 1000;
+    return Number.isFinite(threshold) && threshold > 0 ? threshold : 1000;
+  }
+
+  getNoResponseThreshold() {
+    const threshold = Number(this.config.noResponseAfterMissedPolls);
+    return Number.isFinite(threshold) && threshold >= 0 ? threshold : 2;
+  }
+
+  isStale() {
+    return !this.hasEverSucceeded || this.missedCycles > this.getNoResponseThreshold();
+  }
+
+  throwIfStale() {
+    if (this.isStale()) {
+      throw new this.api.hap.HapStatusError(this.api.hap.HAPStatus.SERVICE_COMMUNICATION_FAILURE);
+    }
+  }
+
+  getCo2LevelOrThrow() {
+    this.throwIfStale();
+    return this.lastReading.co2;
+  }
+
+  getCo2DetectedOrThrow() {
+    this.throwIfStale();
+    return this.lastReading.co2 > this.getCo2Threshold()
+      ? this.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
+      : this.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL;
+  }
+
+  getAirQualityOrThrow() {
+    this.throwIfStale();
+    return mapCo2ToAirQuality(this.lastReading.co2, this.Characteristic.AirQuality);
+  }
+
+  getTemperatureOrThrow() {
+    this.throwIfStale();
+    return this.lastReading.temperature;
+  }
+
+  applyReading(co2, temperature) {
+    const co2Threshold = this.getCo2Threshold();
 
     if (co2 !== null && co2 !== undefined) {
+      this.lastReading.co2 = co2;
+      this.hasEverSucceeded = true;
       this.co2Service.updateCharacteristic(this.Characteristic.CarbonDioxideLevel, co2);
       this.co2Service.updateCharacteristic(
         this.Characteristic.CarbonDioxideDetected,
@@ -188,6 +310,8 @@ class WithingsEnvironmentDataPlatform {
     }
 
     if (temperature !== null && temperature !== undefined) {
+      this.lastReading.temperature = temperature;
+      this.hasEverSucceeded = true;
       this.temperatureService.updateCharacteristic(this.Characteristic.CurrentTemperature, temperature);
     }
   }
