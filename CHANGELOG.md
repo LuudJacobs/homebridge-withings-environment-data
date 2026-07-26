@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+- README's license/changelog links now point to full GitHub URLs instead
+  of relative paths
+- package.json now sets `author`, `homepage`, `bugs`, and `repository`, and
+  includes README/LICENSE/CHANGELOG in `files`
+
 ## [0.3.3] - 2026-07-26
 
 ### Added
@@ -16,8 +22,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Requirements/Usage sections, license/changelog links, Configuration/How
   authentication works/When it stops working/Getting the trust cookie
   nested under Usage)
-- todo-claude.md restructured to include a Staging section, matching the
-  full develop/test/staging/main git flow
 
 ### Fixed
 - LICENSE copyright name typo

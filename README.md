@@ -126,5 +126,5 @@ it once via DevTools:
 
 ## License and changelog
 
-- [LICENSE](LICENSE)
-- [CHANGELOG](CHANGELOG.md)
+- [LICENSE](https://github.com/LuudJacobs/homebridge-withings-environment-data/blob/main/LICENSE)
+- [CHANGELOG](https://github.com/LuudJacobs/homebridge-withings-environment-data/blob/main/CHANGELOG.md)
