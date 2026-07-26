@@ -1,4 +1,4 @@
-# Homebridge Withings Environment Data v0.3.3
+# Homebridge Withings Environment Data v1.0.0
 
 **This Homebridge plugin has been 100% vibe coded with Claude.**
 
@@ -126,5 +126,5 @@ it once via DevTools:
 
 ## License and changelog
 
-- [LICENSE](LICENSE)
-- [CHANGELOG](CHANGELOG.md)
+- [LICENSE](https://github.com/LuudJacobs/homebridge-withings-environment-data/blob/main/LICENSE)
+- [CHANGELOG](https://github.com/LuudJacobs/homebridge-withings-environment-data/blob/main/CHANGELOG.md)
