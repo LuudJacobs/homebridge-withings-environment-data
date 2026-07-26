@@ -47,7 +47,7 @@ accessory:
 These appear automatically in the Home app after Homebridge restarts, no
 further setup needed. Readings update on the poll interval set below.
 
-## Configuration
+### Configuration
 
 All settings are entered through the Homebridge Config UI (Plugins tab,
 Withings Environment Data, Settings).
@@ -74,7 +74,7 @@ Fields:
   a poll succeeds again does the next failure trigger a fresh
   notification). Leave blank to disable.
 
-## How authentication works
+### How authentication works
 
 The plugin reuses a long-lived (~1 week) `session_key`, the same
 mechanism Withings' own web app relies on to stay logged in without
@@ -88,7 +88,7 @@ fallback produces is automatically written back to the same file for next
 time. In normal operation the plugin should hit the password endpoint very
 infrequently, roughly weekly at most.
 
-## When it stops working
+### When it stops working
 
 Most of the time this is self-healing: if the cached session has expired,
 the plugin automatically falls back to a full login and caches the new
@@ -110,7 +110,7 @@ Any other poll failure (network error, unexpected response) is logged the
 same way: an error in the Homebridge log, a fault indicator on the sensors,
 and the previous readings left in place until the next successful poll.
 
-## Getting the trust cookie
+### Getting the trust cookie
 
 Both initial setup and recovering from an expired session need this. Capture
 it once via DevTools:
