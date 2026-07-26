@@ -6,12 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [0.3.3] - 2026-07-26
+
 ### Added
 - CHANGELOG.md (this file)
 
 ### Changed
 - README restructured to match project conventions (versioned title,
-  Requirements/Usage sections, license/changelog links)
+  Requirements/Usage sections, license/changelog links, Configuration/How
+  authentication works/When it stops working/Getting the trust cookie
+  nested under Usage)
 - todo-claude.md restructured to include a Staging section, matching the
   full develop/test/staging/main git flow
 
