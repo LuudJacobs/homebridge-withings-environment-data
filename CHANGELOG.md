@@ -6,15 +6,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.0.0] - 2026-07-26
+
+### Changed
+- README's license/changelog links now point to full GitHub URLs instead
+  of relative paths
+- package.json now sets `author`, `homepage`, `bugs`, and `repository`, and
+  includes README/LICENSE/CHANGELOG in `files`
+
+## [0.3.3] - 2026-07-26
+
 ### Added
 - CHANGELOG.md (this file)
 
 ### Changed
 - README restructured to match project conventions (versioned title,
-  Requirements/Usage sections, license/changelog links); license/changelog
-  links now point to full GitHub URLs
-- package.json now sets `author`, `homepage`, `bugs`, and `repository`, and
-  includes README/LICENSE/CHANGELOG in `files`
+  Requirements/Usage sections, license/changelog links, Configuration/How
+  authentication works/When it stops working/Getting the trust cookie
+  nested under Usage)
 
 ### Fixed
 - LICENSE copyright name typo
