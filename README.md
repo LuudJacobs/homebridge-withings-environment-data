@@ -1,15 +1,9 @@
-# Homebridge Withings Environment Data
+# Homebridge Withings Environment Data v0.3.3
 
 **This Homebridge plugin has been 100% vibe coded with Claude.**
 
 Exposes ambient CO2 (air quality) and room temperature readings from a
-Withings WS-50 scale as HomeKit sensors:
-
-- **CarbonDioxideSensor**: precise CO2 level in ppm, plus a normal/abnormal
-  detected alert based on a configurable threshold.
-- **AirQualitySensor**: the same CO2 reading mapped to HomeKit's
-  Excellent/Good/Fair/Inferior/Poor category.
-- **TemperatureSensor**: room temperature in °C.
+Withings WS-50 scale as HomeKit sensors.
 
 This data isn't available through the official Withings API: a `getmeas`
 call against the documented endpoint drops CO2/temperature even when
@@ -18,6 +12,12 @@ Health Mate web app does (session cookies, not OAuth) and calls the same
 internal endpoint the web app uses. That means it depends on undocumented
 behavior of `account.withings.com` / `scalews.withings.com` and could break
 if Withings changes them.
+
+## Requirements
+
+- Homebridge >=1.6.0
+- Node >=18
+- A Withings account with a WS-50 scale already set up in Health Mate
 
 ## Installation
 
@@ -33,7 +33,21 @@ npm install -g homebridge-withings-environment-data
 Then restart Homebridge and add the platform via the Config UI, or add it
 manually to `config.json`.
 
-## Configuration
+## Usage
+
+Once configured (see below), the plugin exposes three sensors on one
+accessory:
+
+- **CarbonDioxideSensor**: precise CO2 level in ppm, plus a normal/abnormal
+  detected alert based on a configurable threshold.
+- **AirQualitySensor**: the same CO2 reading mapped to HomeKit's
+  Excellent/Good/Fair/Inferior/Poor category.
+- **TemperatureSensor**: room temperature in °C.
+
+These appear automatically in the Home app after Homebridge restarts, no
+further setup needed. Readings update on the poll interval set below.
+
+### Configuration
 
 All settings are entered through the Homebridge Config UI (Plugins tab,
 Withings Environment Data, Settings).
@@ -56,11 +70,11 @@ Fields:
   reports "abnormal" (default 1000).
 - **ntfy Topic (optional)**: if set, sends a push notification via
   [ntfy.sh](https://ntfy.sh) to this topic the first time a poll fails
-  (not repeated on every subsequent failure in the same streak — only once
+  (not repeated on every subsequent failure in the same streak; only once
   a poll succeeds again does the next failure trigger a fresh
   notification). Leave blank to disable.
 
-## How authentication works
+### How authentication works
 
 The plugin reuses a long-lived (~1 week) `session_key`, the same
 mechanism Withings' own web app relies on to stay logged in without
@@ -74,7 +88,7 @@ fallback produces is automatically written back to the same file for next
 time. In normal operation the plugin should hit the password endpoint very
 infrequently, roughly weekly at most.
 
-## When it stops working
+### When it stops working
 
 Most of the time this is self-healing: if the cached session has expired,
 the plugin automatically falls back to a full login and caches the new
@@ -84,7 +98,7 @@ good reading rather than going blank.
 
 If the Homebridge log instead shows a "session not trusted (landed on
 confirm_totp)" error, the *trust cookie* itself has been invalidated (e.g.
-after a password change, or Withings revoking trusted devices) — this is
+after a password change, or Withings revoking trusted devices). This is
 what the fallback login relies on, so it can't self-heal on its own. Fix:
 
 1. Recapture the trust cookie: see [Getting the trust
@@ -96,7 +110,7 @@ Any other poll failure (network error, unexpected response) is logged the
 same way: an error in the Homebridge log, a fault indicator on the sensors,
 and the previous readings left in place until the next successful poll.
 
-## Getting the trust cookie
+### Getting the trust cookie
 
 Both initial setup and recovering from an expired session need this. Capture
 it once via DevTools:
@@ -109,3 +123,8 @@ it once via DevTools:
    name and its value. This is what actually signals "this device already
    passed 2FA". Its name stays stable across logins even though its value
    doesn't.
+
+## License and changelog
+
+- [LICENSE](LICENSE)
+- [CHANGELOG](CHANGELOG.md)
