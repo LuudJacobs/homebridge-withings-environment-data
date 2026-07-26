@@ -11,9 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - README restructured to match project conventions (versioned title,
-  Requirements/Usage sections, license/changelog links)
-- todo-claude.md restructured to include a Staging section, matching the
-  full develop/test/staging/main git flow
+  Requirements/Usage sections, license/changelog links); license/changelog
+  links now point to full GitHub URLs
+- package.json now sets `author`, `homepage`, `bugs`, and `repository`, and
+  includes README/LICENSE/CHANGELOG in `files`
 
 ### Fixed
 - LICENSE copyright name typo
