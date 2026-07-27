@@ -259,7 +259,7 @@ class WithingsEnvironmentDataPlatform {
       if (!this.hasNotifiedFailure) {
         this.hasNotifiedFailure = true;
         const notificationMessage = err.isAuthFailure
-          ? 'Authentication for Withings account failed. Check the Homebridge logs for details'
+          ? 'Authentication for Withings account failed. Check the Homebridge logs for details.'
           : err.message;
         await this.sendNtfyNotification(notificationMessage);
       }
