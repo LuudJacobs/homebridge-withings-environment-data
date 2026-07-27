@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.1.1] - 2026-07-27
+
+### Fixed
+- Fixed a crash on every poll ("Cannot read properties of undefined
+  (reading 'excellentMaxPpm')"): `applyReading()`'s AirQualitySensor
+  update was missed when the Air Quality thresholds became configurable
+  in v1.1.0 and still called `mapCo2ToAirQuality()` without them
+
 ## [1.1.0] - 2026-07-27
 
 ### Added
