@@ -1,4 +1,4 @@
-# Homebridge Withings Environment Data v1.0.0
+# Homebridge Withings Environment Data v1.1.0
 
 **This Homebridge plugin has been 100% vibe coded with Claude.**
 
@@ -41,7 +41,8 @@ accessory:
 - **CarbonDioxideSensor**: precise CO2 level in ppm, plus a normal/abnormal
   detected alert based on a configurable threshold.
 - **AirQualitySensor**: the same CO2 reading mapped to HomeKit's
-  Excellent/Good/Fair/Inferior/Poor category.
+  Excellent/Good/Fair/Inferior/Poor category, based on configurable ppm
+  thresholds.
 - **TemperatureSensor**: room temperature in °C.
 
 These appear automatically in the Home app after Homebridge restarts, no
@@ -68,6 +69,9 @@ Fields:
   matching the scale's own upload cadence).
 - **CO2 Detected Threshold (ppm)**: ppm above which the CarbonDioxideSensor
   reports "abnormal" (default 1000).
+- **Air Quality: Excellent/Good/Fair/Inferior below (ppm)**: the four ppm
+  boundaries the AirQualitySensor category is based on (defaults 800, 1000,
+  1500, 2000).
 - **ntfy Topic (optional)**: if set, sends a push notification via
   [ntfy.sh](https://ntfy.sh) to this topic the first time a poll fails
   (not repeated on every subsequent failure in the same streak; only once
