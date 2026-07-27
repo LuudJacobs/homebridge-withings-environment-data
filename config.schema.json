@@ -49,6 +49,34 @@
         "default": 1000,
         "minimum": 400
       },
+      "airQualityExcellentMaxPpm": {
+        "title": "Air Quality: Excellent below (ppm)",
+        "type": "integer",
+        "default": 800,
+        "minimum": 1,
+        "description": "CO2 readings below this are reported as Excellent air quality."
+      },
+      "airQualityGoodMaxPpm": {
+        "title": "Air Quality: Good below (ppm)",
+        "type": "integer",
+        "default": 1000,
+        "minimum": 1,
+        "description": "CO2 readings below this (and at or above the Excellent threshold) are reported as Good."
+      },
+      "airQualityFairMaxPpm": {
+        "title": "Air Quality: Fair below (ppm)",
+        "type": "integer",
+        "default": 1500,
+        "minimum": 1,
+        "description": "CO2 readings below this (and at or above the Good threshold) are reported as Fair."
+      },
+      "airQualityInferiorMaxPpm": {
+        "title": "Air Quality: Inferior below (ppm)",
+        "type": "integer",
+        "default": 2000,
+        "minimum": 1,
+        "description": "CO2 readings below this (and at or above the Fair threshold) are reported as Inferior; at or above it, Poor."
+      },
       "noResponseAfterMissedPolls": {
         "title": "No Response After Missed Polls",
         "type": "integer",

@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- Air Quality threshold config fields (`airQualityExcellentMaxPpm`,
+  `airQualityGoodMaxPpm`, `airQualityFairMaxPpm`,
+  `airQualityInferiorMaxPpm`) to make the AirQualitySensor's ppm
+  boundaries configurable instead of hardcoded
+
 ## [1.0.0] - 2026-07-26
 
 ### Changed

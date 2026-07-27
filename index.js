@@ -63,11 +63,11 @@ async function fetchLatest({ cookieHeader, sessionToken, deviceId, userId }) {
   };
 }
 
-function mapCo2ToAirQuality(ppm, AirQuality) {
-  if (ppm < 800) return AirQuality.EXCELLENT;
-  if (ppm < 1000) return AirQuality.GOOD;
-  if (ppm < 1500) return AirQuality.FAIR;
-  if (ppm < 2000) return AirQuality.INFERIOR;
+function mapCo2ToAirQuality(ppm, AirQuality, thresholds) {
+  if (ppm < thresholds.excellentMaxPpm) return AirQuality.EXCELLENT;
+  if (ppm < thresholds.goodMaxPpm) return AirQuality.GOOD;
+  if (ppm < thresholds.fairMaxPpm) return AirQuality.FAIR;
+  if (ppm < thresholds.inferiorMaxPpm) return AirQuality.INFERIOR;
   return AirQuality.POOR;
 }
 
@@ -282,6 +282,19 @@ class WithingsEnvironmentDataPlatform {
     return Number.isFinite(threshold) && threshold >= 0 ? threshold : 2;
   }
 
+  getAirQualityThresholds() {
+    const excellentMaxPpm = Number(this.config.airQualityExcellentMaxPpm);
+    const goodMaxPpm = Number(this.config.airQualityGoodMaxPpm);
+    const fairMaxPpm = Number(this.config.airQualityFairMaxPpm);
+    const inferiorMaxPpm = Number(this.config.airQualityInferiorMaxPpm);
+    return {
+      excellentMaxPpm: Number.isFinite(excellentMaxPpm) && excellentMaxPpm > 0 ? excellentMaxPpm : 800,
+      goodMaxPpm: Number.isFinite(goodMaxPpm) && goodMaxPpm > 0 ? goodMaxPpm : 1000,
+      fairMaxPpm: Number.isFinite(fairMaxPpm) && fairMaxPpm > 0 ? fairMaxPpm : 1500,
+      inferiorMaxPpm: Number.isFinite(inferiorMaxPpm) && inferiorMaxPpm > 0 ? inferiorMaxPpm : 2000,
+    };
+  }
+
   isStale() {
     return !this.hasEverSucceeded || this.missedCycles > this.getNoResponseThreshold();
   }
@@ -306,7 +319,7 @@ class WithingsEnvironmentDataPlatform {
 
   getAirQualityOrThrow() {
     this.throwIfStale();
-    return mapCo2ToAirQuality(this.lastReading.co2, this.Characteristic.AirQuality);
+    return mapCo2ToAirQuality(this.lastReading.co2, this.Characteristic.AirQuality, this.getAirQualityThresholds());
   }
 
   getTemperatureOrThrow() {
