@@ -216,7 +216,13 @@ class WithingsEnvironmentDataPlatform {
 
   async poll() {
     try {
-      const { cookieHeader, sessionToken } = await this.authenticate();
+      let cookieHeader, sessionToken;
+      try {
+        ({ cookieHeader, sessionToken } = await this.authenticate());
+      } catch (err) {
+        err.isAuthFailure = true;
+        throw err;
+      }
 
       if (!this.deviceId || !this.userId) {
         const discovered = await discoverDevice(cookieHeader);
@@ -252,7 +258,10 @@ class WithingsEnvironmentDataPlatform {
 
       if (!this.hasNotifiedFailure) {
         this.hasNotifiedFailure = true;
-        await this.sendNtfyNotification(err.message);
+        const notificationMessage = err.isAuthFailure
+          ? 'Authentication for Withings account failed. Check the Homebridge logs for details'
+          : err.message;
+        await this.sendNtfyNotification(notificationMessage);
       }
     }
   }
