@@ -351,7 +351,7 @@ class WithingsEnvironmentDataPlatform {
       );
       this.airQualityService.updateCharacteristic(
         this.Characteristic.AirQuality,
-        mapCo2ToAirQuality(co2, this.Characteristic.AirQuality)
+        mapCo2ToAirQuality(co2, this.Characteristic.AirQuality, this.getAirQualityThresholds())
       );
     }
 
