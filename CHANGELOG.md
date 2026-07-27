@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- Air Quality threshold config fields (`airQualityExcellentMaxPpm`,
+  `airQualityGoodMaxPpm`, `airQualityFairMaxPpm`,
+  `airQualityInferiorMaxPpm`) to make the AirQualitySensor's ppm
+  boundaries configurable instead of hardcoded
+
+### Changed
+- ntfy notifications for an authentication failure now use a fixed,
+  generic message instead of the raw internal error text; other poll
+  failures still send the raw error message. The Homebridge log still
+  always shows the detailed error either way.
+
 ## [1.0.0] - 2026-07-26
 
 ### Changed
