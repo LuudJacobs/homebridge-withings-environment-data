@@ -6,6 +6,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- A log entry after every successful full login stating whether a new
+  session token was cached, was unchanged, or wasn't issued at all
+
 ### Fixed
 - `login()`'s fallback full login now requires actually landing on
   `/new_workflow/exit` to be considered successful (matching
