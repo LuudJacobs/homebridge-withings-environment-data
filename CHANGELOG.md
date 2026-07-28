@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.1.2] - 2026-07-28
+
 ### Added
 - A log entry after every successful full login stating whether a new
   session token was cached, was unchanged, or wasn't issued at all
