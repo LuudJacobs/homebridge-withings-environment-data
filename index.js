@@ -144,10 +144,16 @@ class WithingsEnvironmentDataPlatform {
       this.config.trustCookieValue
     );
 
-    if (result.sessionKey && result.sessionKey !== this.sessionKey) {
-      this.sessionKey = result.sessionKey;
-      this.saveSessionKey(result.sessionKey);
-      this.log.info('Withings full login succeeded; cached the new session for future polls.');
+    if (result.sessionKey) {
+      if (result.sessionKey !== this.sessionKey) {
+        this.sessionKey = result.sessionKey;
+        this.saveSessionKey(result.sessionKey);
+        this.log.info('Withings full login succeeded; cached the new session for future polls.');
+      } else {
+        this.log.info('Withings full login succeeded; session token unchanged.');
+      }
+    } else {
+      this.log.warn('Withings full login succeeded but no new session token was issued; will retry full login next poll.');
     }
 
     return result;

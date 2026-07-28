@@ -6,6 +6,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- A log entry after every successful full login stating whether a new
+  session token was cached, was unchanged, or wasn't issued at all
+
+### Fixed
+- `login()`'s fallback full login now requires actually landing on
+  `/new_workflow/exit` to be considered successful (matching
+  `resumeSession()`'s existing check), instead of only checking for the
+  `confirm_totp` 2FA-trust failure case. Previously, any other silent
+  login failure (e.g. rate limiting) was treated as success, only
+  surfacing later as a confusing "Invalid Session" error from the
+  measure endpoint instead of a clear, correctly-classified
+  authentication failure
+
 ## [1.1.1] - 2026-07-27
 
 ### Fixed
