@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.2.0] - 2026-07-31
+
+### Added
+- Stale data detection: if the newest reading from the scale itself is
+  older than the new `staleDataWarningThresholdHours` config field
+  (default 4 hours), a warning is logged with the last-recorded date and
+  time, the sensors report "No Response" in the Home app, and (if `ntfy
+  Topic` is set) a notification is sent — all once per stale streak, with
+  a log line and reset once a fresher reading comes in. Separate from
+  poll failures, which were already covered.
+
 ## [1.1.2] - 2026-07-28
 
 ### Added

@@ -55,11 +55,17 @@ async function fetchLatest({ cookieHeader, sessionToken, deviceId, userId }) {
 
   const co2Series = json.body.series?.find((s) => s.type === MEASTYPE_CO2)?.data ?? [];
   const tempSeries = json.body.series?.find((s) => s.type === MEASTYPE_TEMPERATURE)?.data ?? [];
+  // Both series are newest-first, so the first entry is the latest reading.
+  const co2Point = co2Series.length > 0 ? co2Series[0] : null;
+  const tempPoint = tempSeries.length > 0 ? tempSeries[0] : null;
 
   return {
-    // Both series are newest-first, so the first entry is the latest reading.
-    co2: co2Series.length > 0 ? co2Series[0].value : null,
-    temperature: tempSeries.length > 0 ? tempSeries[0].value : null,
+    co2: co2Point ? co2Point.value : null,
+    temperature: tempPoint ? tempPoint.value : null,
+    // Unix seconds the reading was actually taken, not when we fetched it —
+    // used to detect the scale itself going quiet (e.g. nobody's stood on
+    // it in a while), as opposed to the plugin failing to reach Withings.
+    readingDate: co2Point?.date ?? tempPoint?.date ?? null,
   };
 }
 
@@ -96,6 +102,14 @@ class WithingsEnvironmentDataPlatform {
     // Only send one ntfy notification per failure streak, not on every
     // missed poll — reset once a poll succeeds again.
     this.hasNotifiedFailure = false;
+
+    // Unix seconds of the newest reading actually seen so far (from the
+    // Withings measurement itself, not from a successful poll) — used to
+    // detect the scale going quiet rather than the plugin failing to poll.
+    // Warn/notify once per stale streak, reset once a fresher reading comes in.
+    this.lastReadingDate = null;
+    this.staleDataWarned = false;
+    this.warnedMissingReadingDate = false;
 
     // The long-lived (~1 week) session_key that lets us skip email/password/2FA
     // entirely on most polls — see lib/login.js's resumeSession(). Persisted to
@@ -240,14 +254,14 @@ class WithingsEnvironmentDataPlatform {
         }
       }
 
-      const { co2, temperature } = await fetchLatest({
+      const { co2, temperature, readingDate } = await fetchLatest({
         cookieHeader,
         sessionToken,
         deviceId: this.deviceId,
         userId: this.userId,
       });
 
-      this.applyReading(co2, temperature);
+      this.applyReading(co2, temperature, readingDate);
       this.setFault(false);
       this.missedCycles = 0;
       this.hasNotifiedFailure = false;
@@ -270,17 +284,22 @@ class WithingsEnvironmentDataPlatform {
         await this.sendNtfyNotification(notificationMessage);
       }
     }
+
+    // Independent of whether this poll itself succeeded — the scale can go
+    // quiet (no one's stood on it) while polls keep succeeding fine, so this
+    // is checked every cycle against whatever the newest reading actually is.
+    await this.checkStaleData();
   }
 
-  async sendNtfyNotification(errorMessage) {
+  async sendNtfyNotification(message, title = 'Homebridge: Getting Withings Environment Data Failed!') {
     const topic = this.config.ntfyTopic;
     if (!topic) return;
 
     try {
       await fetch(`https://ntfy.sh/${encodeURIComponent(topic)}`, {
         method: 'POST',
-        headers: { Title: 'Homebridge: Getting Withings Environment Data Failed!' },
-        body: errorMessage,
+        headers: { Title: title },
+        body: message,
       });
     } catch (err) {
       this.log.warn(`Failed to send ntfy notification: ${err.message}`);
@@ -310,8 +329,47 @@ class WithingsEnvironmentDataPlatform {
     };
   }
 
+  getStaleDataThresholdHours() {
+    const threshold = Number(this.config.staleDataWarningThresholdHours);
+    return Number.isFinite(threshold) && threshold >= 1 ? threshold : 4;
+  }
+
+  // dd-mm and 24hr time, per the configured warning's required format — no
+  // year, since this is about "how long ago", not a historical record.
+  formatStaleDateTime(unixSeconds) {
+    const d = new Date(unixSeconds * 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    return {
+      date: `${pad(d.getDate())}-${pad(d.getMonth() + 1)}`,
+      time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    };
+  }
+
+  isDataStale() {
+    if (!this.lastReadingDate) return false;
+    const ageHours = (Date.now() / 1000 - this.lastReadingDate) / 3600;
+    return ageHours > this.getStaleDataThresholdHours();
+  }
+
+  async checkStaleData() {
+    const stale = this.isDataStale();
+
+    if (stale && !this.staleDataWarned) {
+      this.staleDataWarned = true;
+      const { date, time } = this.formatStaleDateTime(this.lastReadingDate);
+      this.log.warn(`Withings data is stale: last recorded at ${date} ${time}`);
+      await this.sendNtfyNotification(
+        `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
+        'Homebridge: Withings Environment Data is out of date'
+      );
+    } else if (!stale && this.staleDataWarned) {
+      this.staleDataWarned = false;
+      this.log.info('Withings: fresh data has been recorded.');
+    }
+  }
+
   isStale() {
-    return !this.hasEverSucceeded || this.missedCycles > this.getNoResponseThreshold();
+    return !this.hasEverSucceeded || this.missedCycles > this.getNoResponseThreshold() || this.isDataStale();
   }
 
   throwIfStale() {
@@ -342,8 +400,20 @@ class WithingsEnvironmentDataPlatform {
     return this.lastReading.temperature;
   }
 
-  applyReading(co2, temperature) {
+  applyReading(co2, temperature, readingDate) {
     const co2Threshold = this.getCo2Threshold();
+    const hasReading = (co2 !== null && co2 !== undefined) || (temperature !== null && temperature !== undefined);
+
+    if (hasReading && (readingDate === null || readingDate === undefined)) {
+      if (!this.warnedMissingReadingDate) {
+        this.warnedMissingReadingDate = true;
+        this.log.warn(
+          'Withings measurement data has no recognizable date field; stale data detection is disabled until this is fixed.'
+        );
+      }
+    } else if (readingDate !== null && readingDate !== undefined) {
+      this.lastReadingDate = readingDate;
+    }
 
     if (co2 !== null && co2 !== undefined) {
       this.lastReading.co2 = co2;
