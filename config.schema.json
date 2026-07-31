@@ -84,6 +84,13 @@
         "minimum": 0,
         "description": "Consecutive failed polls to tolerate (keeping the last known readings) before the Home app shows \"No Response\". 0 means show it immediately on any failure."
       },
+      "staleDataWarningThresholdHours": {
+        "title": "Stale Data Warning Threshold (hours)",
+        "type": "integer",
+        "default": 4,
+        "minimum": 1,
+        "description": "If the newest CO2/temperature reading from the scale itself is older than this many hours (e.g. nobody's stood on it), log a warning, show \"No Response\" in the Home app, and (if ntfy Topic is set) send a notification. This is separate from poll failures above."
+      },
       "ntfyTopic": {
         "title": "ntfy Topic (optional)",
         "type": "string",
