@@ -72,11 +72,17 @@ Fields:
 - **Air Quality: Excellent/Good/Fair/Inferior below (ppm)**: the four ppm
   boundaries the AirQualitySensor category is based on (defaults 800, 1000,
   1500, 2000).
+- **Stale Data Warning Threshold (hours)**: if the newest reading from the
+  scale itself (not the plugin's poll) is older than this many hours — e.g.
+  nobody's stood on the scale in a while — a warning is logged, the sensors
+  show "No Response" in the Home app, and (if ntfy Topic is set) a
+  notification is sent. Default 4. This is separate from poll failures.
 - **ntfy Topic (optional)**: if set, sends a push notification via
   [ntfy.sh](https://ntfy.sh) to this topic the first time a poll fails
   (not repeated on every subsequent failure in the same streak; only once
   a poll succeeds again does the next failure trigger a fresh
-  notification). Leave blank to disable.
+  notification), and separately, once when the data becomes stale (see
+  above). Leave blank to disable.
 
 ### How authentication works
 
