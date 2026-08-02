@@ -23,6 +23,9 @@
   ],
   "author": "Luud Jacobs",
   "license": "MIT",
+  "dependencies": {
+    "mqtt": "^5.15.0"
+  },
   "homepage": "https://github.com/LuudJacobs/homebridge-withings-environment-data#readme",
   "bugs": {
     "url": "https://github.com/LuudJacobs/homebridge-withings-environment-data/issues"

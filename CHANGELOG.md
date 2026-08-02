@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- Optional MQTT publishing: when "Publish to MQTT" is enabled and a broker
+  Host is configured, every successful poll publishes a retained message
+  to topic `withingsenv/ws-50` shaped like
+  `{"temperature": 25.2, "co2_levels": 674}`
+- "Expose sensors as HomeKit Accessories" toggle (default on): when off,
+  the plugin still polls (and still publishes to MQTT, if enabled) but
+  doesn't create or update a HomeKit accessory
+
+### Changed
+- Config UI reorganized: CO2/Air Quality thresholds moved into a collapsed
+  "Air Quality" fieldset with shorter field titles and fewer descriptions,
+  credentials moved into an expanded "Authentication" fieldset, MQTT
+  settings into a collapsed "MQTT" fieldset; Poll Interval moved below Air
+  Quality
+
 ## [1.2.1] - 2026-08-02
 
 ### Changed
