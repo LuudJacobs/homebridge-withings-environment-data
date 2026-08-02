@@ -108,7 +108,6 @@ class WithingsEnvironmentDataPlatform {
     // detect the scale going quiet rather than the plugin failing to poll.
     // Warn/notify once per stale streak, reset once a fresher reading comes in.
     this.lastReadingDate = null;
-    this.staleDataWarned = false;
     this.warnedMissingReadingDate = false;
 
     // The long-lived (~1 week) session_key that lets us skip email/password/2FA
@@ -117,26 +116,35 @@ class WithingsEnvironmentDataPlatform {
     // it, since repeatedly hitting the password endpoint appears to be heavily
     // throttled by Withings.
     this.sessionStatePath = path.join(this.api.user.storagePath(), SESSION_STATE_FILENAME);
-    this.sessionKey = this.loadSessionKey();
+    const state = this.loadPersistedState();
+    this.sessionKey = state.sessionKey ?? null;
+    // The readingDate (unix seconds) we last sent a stale-data warning/notification
+    // for, or null if not currently in a warned state. Persisted so a Homebridge
+    // restart doesn't re-notify about a reading we've already warned about — it
+    // only resets once a fresher reading (a different readingDate) comes in.
+    this.staleWarnedForReadingDate = state.staleWarnedForReadingDate ?? null;
 
     this.api.on('didFinishLaunching', () => this.discoverDevices());
   }
 
-  loadSessionKey() {
+  loadPersistedState() {
     try {
       const raw = fs.readFileSync(this.sessionStatePath, 'utf8');
-      return JSON.parse(raw).sessionKey ?? null;
+      return JSON.parse(raw);
     } catch (err) {
       if (err.code !== 'ENOENT') {
         this.log.warn(`Could not read session state file: ${err.message}`);
       }
-      return null;
+      return {};
     }
   }
 
-  saveSessionKey(sessionKey) {
+  persistState() {
     try {
-      fs.writeFileSync(this.sessionStatePath, JSON.stringify({ sessionKey }));
+      fs.writeFileSync(
+        this.sessionStatePath,
+        JSON.stringify({ sessionKey: this.sessionKey, staleWarnedForReadingDate: this.staleWarnedForReadingDate })
+      );
     } catch (err) {
       this.log.warn(`Could not persist session state file: ${err.message}`);
     }
@@ -161,7 +169,7 @@ class WithingsEnvironmentDataPlatform {
     if (result.sessionKey) {
       if (result.sessionKey !== this.sessionKey) {
         this.sessionKey = result.sessionKey;
-        this.saveSessionKey(result.sessionKey);
+        this.persistState();
         this.log.info('Withings full login succeeded; cached the new session for future polls.');
       } else {
         this.log.info('Withings full login succeeded; session token unchanged.');
@@ -353,17 +361,21 @@ class WithingsEnvironmentDataPlatform {
 
   async checkStaleData() {
     const stale = this.isDataStale();
+    const alreadyWarnedForThisReading =
+      this.staleWarnedForReadingDate !== null && this.staleWarnedForReadingDate === this.lastReadingDate;
 
-    if (stale && !this.staleDataWarned) {
-      this.staleDataWarned = true;
+    if (stale && !alreadyWarnedForThisReading) {
+      this.staleWarnedForReadingDate = this.lastReadingDate;
+      this.persistState();
       const { date, time } = this.formatStaleDateTime(this.lastReadingDate);
       this.log.warn(`Withings data is stale: last recorded at ${date} ${time}`);
       await this.sendNtfyNotification(
         `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
         'Homebridge: Withings Environment Data is out of date'
       );
-    } else if (!stale && this.staleDataWarned) {
-      this.staleDataWarned = false;
+    } else if (!stale && this.staleWarnedForReadingDate !== null) {
+      this.staleWarnedForReadingDate = null;
+      this.persistState();
       this.log.info('Withings: fresh data has been recorded.');
     }
   }
