@@ -120,11 +120,13 @@ class WithingsEnvironmentDataPlatform {
     // it) so a restart can't be mistaken for "no reading yet" and wrongly clear
     // an active stale-warning below.
     this.lastReadingDate = state.lastReadingDate ?? null;
-    // The readingDate (unix seconds) we last sent a stale-data warning/notification
-    // for, or null if not currently in a warned state. Persisted so a Homebridge
-    // restart doesn't re-notify about a reading we've already warned about — it
-    // only resets once a fresher reading (a different readingDate) comes in.
-    this.staleWarnedForReadingDate = state.staleWarnedForReadingDate ?? null;
+    // The readingDate (unix seconds) we last sent a stale-data *notification* for,
+    // or null if not currently in a notified state. The log warning itself repeats
+    // every poll while data stays stale (like missed-poll-cycle failures do), but
+    // this gates the ntfy notification to once per distinct stale reading, and is
+    // persisted so a Homebridge restart doesn't re-notify about a reading we've
+    // already notified about — it only resets once a fresher reading comes in.
+    this.staleNotifiedForReadingDate = state.staleNotifiedForReadingDate ?? null;
 
     this.api.on('didFinishLaunching', () => this.discoverDevices());
   }
@@ -148,7 +150,7 @@ class WithingsEnvironmentDataPlatform {
         JSON.stringify({
           sessionKey: this.sessionKey,
           lastReadingDate: this.lastReadingDate,
-          staleWarnedForReadingDate: this.staleWarnedForReadingDate,
+          staleNotifiedForReadingDate: this.staleNotifiedForReadingDate,
         })
       );
     } catch (err) {
@@ -367,20 +369,22 @@ class WithingsEnvironmentDataPlatform {
 
   async checkStaleData() {
     const stale = this.isDataStale();
-    const alreadyWarnedForThisReading =
-      this.staleWarnedForReadingDate !== null && this.staleWarnedForReadingDate === this.lastReadingDate;
 
-    if (stale && !alreadyWarnedForThisReading) {
-      this.staleWarnedForReadingDate = this.lastReadingDate;
-      this.persistState();
+    if (stale) {
       const { date, time } = this.formatStaleDateTime(this.lastReadingDate);
       this.log.warn(`Withings data is stale: last recorded at ${date} ${time}`);
-      await this.sendNtfyNotification(
-        `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
-        'Homebridge: Withings Environment Data is out of date'
-      );
-    } else if (!stale && this.staleWarnedForReadingDate !== null) {
-      this.staleWarnedForReadingDate = null;
+
+      const alreadyNotifiedForThisReading = this.staleNotifiedForReadingDate === this.lastReadingDate;
+      if (!alreadyNotifiedForThisReading) {
+        this.staleNotifiedForReadingDate = this.lastReadingDate;
+        this.persistState();
+        await this.sendNtfyNotification(
+          `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
+          'Homebridge: Withings Environment Data is out of date'
+        );
+      }
+    } else if (this.staleNotifiedForReadingDate !== null) {
+      this.staleNotifiedForReadingDate = null;
       this.persistState();
       this.log.info('Withings: fresh data has been recorded.');
     }
