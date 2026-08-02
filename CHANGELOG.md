@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- Optional MQTT publishing: when "Publish to MQTT" is enabled and a broker
+  Host is configured, every successful poll publishes a retained message
+  to topic `withingsenv/ws-50` shaped like
+  `{"temperature": 25.2, "co2_levels": 674}`
+- "Expose sensors as HomeKit Accessories" toggle (default on): when off,
+  the plugin still polls (and still publishes to MQTT, if enabled) but
+  doesn't create or update a HomeKit accessory
+
+### Changed
+- Config UI reorganized: Name, then an expanded "Authentication" fieldset,
+  the Expose/Publish checkboxes, a collapsed "MQTT" fieldset, a collapsed
+  "Air Quality" fieldset (shorter field titles, fewer descriptions), Poll
+  Interval, No Response After Missed Polls, Stale Data Warning Threshold,
+  ntfy.sh Notification Topic (renamed from "ntfy Topic (optional)")
+- `displayName` set in `package.json` so Homebridge Config UI shows
+  "Withings Environment Data" in the Plugins list instead of the raw npm
+  package name
+- Shortened a few config field descriptions (No Response After Missed
+  Polls, Stale Data Warning Threshold, ntfy.sh Notification Topic)
+
 ## [1.2.1] - 2026-08-02
 
 ### Changed

@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const mqtt = require('mqtt');
 const { login, resumeSession } = require('./lib/login');
 const { discoverDevice } = require('./lib/discover');
 
@@ -16,6 +17,7 @@ const APPPFM = 'web';
 const WINDOW_HOURS = 48;
 
 const PLATFORM_NAME = 'WithingsEnvironmentData';
+const MQTT_TOPIC = 'withingsenv/ws-50';
 
 async function fetchLatest({ cookieHeader, sessionToken, deviceId, userId }) {
   const enddate = Math.floor(Date.now() / 1000);
@@ -198,13 +200,52 @@ class WithingsEnvironmentDataPlatform {
     const uuid = this.api.hap.uuid.generate('withings-environment-data');
     let accessory = this.accessories.find((acc) => acc.UUID === uuid);
 
-    if (!accessory) {
-      accessory = new this.api.platformAccessory(this.config.name || 'Withings Environment', uuid);
-      this.api.registerPlatformAccessories('homebridge-withings-environment-data', PLATFORM_NAME, [accessory]);
+    if (this.getExposeAsHomekitAccessories()) {
+      if (!accessory) {
+        accessory = new this.api.platformAccessory(this.config.name || 'Withings Environment', uuid);
+        this.api.registerPlatformAccessories('homebridge-withings-environment-data', PLATFORM_NAME, [accessory]);
+      }
+      this.setupServices(accessory);
+    } else if (accessory) {
+      // Previously exposed, now toggled off — remove the stale accessory rather
+      // than leaving it registered but never updated.
+      this.api.unregisterPlatformAccessories('homebridge-withings-environment-data', PLATFORM_NAME, [accessory]);
     }
 
-    this.setupServices(accessory);
+    this.connectMqtt();
     this.startPolling();
+  }
+
+  getExposeAsHomekitAccessories() {
+    return this.config.exposeAsHomekitAccessories !== false;
+  }
+
+  getPublishToMqtt() {
+    return this.config.publishToMqtt === true;
+  }
+
+  connectMqtt() {
+    if (!this.getPublishToMqtt()) return;
+
+    if (!this.config.mqttHost) {
+      this.log.warn('Publish to MQTT is enabled but no MQTT Host is configured; MQTT publishing is disabled.');
+      return;
+    }
+
+    const port = Number(this.config.mqttPort);
+    const url = `mqtt://${this.config.mqttHost}:${Number.isFinite(port) && port > 0 ? port : 1883}`;
+    this.mqttClient = mqtt.connect(url, {
+      username: this.config.mqttUsername || undefined,
+      password: this.config.mqttPassword || undefined,
+    });
+    this.mqttClient.on('error', (err) => this.log.warn(`MQTT connection error: ${err.message}`));
+    this.api.on('shutdown', () => this.mqttClient.end());
+  }
+
+  publishMqttReading() {
+    if (!this.mqttClient) return;
+    const payload = JSON.stringify({ temperature: this.lastReading.temperature, co2_levels: this.lastReading.co2 });
+    this.mqttClient.publish(MQTT_TOPIC, payload, { retain: true });
   }
 
   setupServices(accessory) {
@@ -441,27 +482,39 @@ class WithingsEnvironmentDataPlatform {
     if (co2 !== null && co2 !== undefined) {
       this.lastReading.co2 = co2;
       this.hasEverSucceeded = true;
-      this.co2Service.updateCharacteristic(this.Characteristic.CarbonDioxideLevel, co2);
-      this.co2Service.updateCharacteristic(
-        this.Characteristic.CarbonDioxideDetected,
-        co2 > co2Threshold
-          ? this.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
-          : this.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL
-      );
-      this.airQualityService.updateCharacteristic(
-        this.Characteristic.AirQuality,
-        mapCo2ToAirQuality(co2, this.Characteristic.AirQuality, this.getAirQualityThresholds())
-      );
+      if (this.co2Service) {
+        this.co2Service.updateCharacteristic(this.Characteristic.CarbonDioxideLevel, co2);
+        this.co2Service.updateCharacteristic(
+          this.Characteristic.CarbonDioxideDetected,
+          co2 > co2Threshold
+            ? this.Characteristic.CarbonDioxideDetected.CO2_LEVELS_ABNORMAL
+            : this.Characteristic.CarbonDioxideDetected.CO2_LEVELS_NORMAL
+        );
+      }
+      if (this.airQualityService) {
+        this.airQualityService.updateCharacteristic(
+          this.Characteristic.AirQuality,
+          mapCo2ToAirQuality(co2, this.Characteristic.AirQuality, this.getAirQualityThresholds())
+        );
+      }
     }
 
     if (temperature !== null && temperature !== undefined) {
       this.lastReading.temperature = temperature;
       this.hasEverSucceeded = true;
-      this.temperatureService.updateCharacteristic(this.Characteristic.CurrentTemperature, temperature);
+      if (this.temperatureService) {
+        this.temperatureService.updateCharacteristic(this.Characteristic.CurrentTemperature, temperature);
+      }
+    }
+
+    if (hasReading) {
+      this.publishMqttReading();
     }
   }
 
   setFault(hasFault) {
+    if (!this.co2Service) return;
+
     const value = hasFault
       ? this.Characteristic.StatusFault.GENERAL_FAULT
       : this.Characteristic.StatusFault.NO_FAULT;
