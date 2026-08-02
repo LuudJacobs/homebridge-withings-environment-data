@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.3.0] - 2026-08-03
+
 ### Added
 - Optional MQTT publishing: when "Publish to MQTT" is enabled and a broker
   Host is configured, every successful poll publishes a retained message
