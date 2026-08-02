@@ -111,38 +111,24 @@
         "type": "integer",
         "default": 2,
         "minimum": 0,
-        "description": "Consecutive failed polls to tolerate (keeping the last known readings) before the Home app shows \"No Response\". 0 means show it immediately on any failure."
+        "description": "Consecutive failed polls to tolerate before the Home app shows \"No Response\"."
       },
       "staleDataWarningThresholdHours": {
         "title": "Stale Data Warning Threshold (hours)",
         "type": "integer",
         "default": 4,
         "minimum": 1,
-        "description": "If the newest CO2/temperature reading from the scale itself is older than this many hours (e.g. nobody's stood on it), log a warning, show \"No Response\" in the Home app, and (if ntfy Topic is set) send a notification. This is separate from poll failures above."
+        "description": "If the newest CO2/temperature reading from the scale itself is older than this many hours, log a warning, show \"No Response\" in the Home app, and send a notification."
       },
       "ntfyTopic": {
-        "title": "ntfy Topic (optional)",
+        "title": "ntfy.sh Notification Topic",
         "type": "string",
-        "description": "If set, sends a push notification via ntfy.sh to this topic the first time a poll fails (not repeated on every subsequent failure in the same streak). Leave blank to disable."
+        "description": "If set, sends a push notification via ntfy.sh the first time a poll fails."
       }
     }
   },
   "layout": [
     "name",
-    {
-      "type": "fieldset",
-      "title": "Air Quality",
-      "expandable": true,
-      "expanded": false,
-      "items": [
-        "co2DetectedThresholdPpm",
-        "airQualityExcellentMaxPpm",
-        "airQualityGoodMaxPpm",
-        "airQualityFairMaxPpm",
-        "airQualityInferiorMaxPpm"
-      ]
-    },
-    "pollIntervalMinutes",
     {
       "type": "fieldset",
       "title": "Authentication",
@@ -169,6 +155,20 @@
         "mqttPassword"
       ]
     },
+    {
+      "type": "fieldset",
+      "title": "Air Quality",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        "co2DetectedThresholdPpm",
+        "airQualityExcellentMaxPpm",
+        "airQualityGoodMaxPpm",
+        "airQualityFairMaxPpm",
+        "airQualityInferiorMaxPpm"
+      ]
+    },
+    "pollIntervalMinutes",
     "noResponseAfterMissedPolls",
     "staleDataWarningThresholdHours",
     "ntfyTopic"

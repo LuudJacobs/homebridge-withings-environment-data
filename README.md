@@ -94,7 +94,7 @@ Fields:
   poll for as long as it stays stale, the sensors show "No Response" in the
   Home app, and (if ntfy Topic is set) a single notification is sent for
   that stale reading. Default 4. This is separate from poll failures.
-- **ntfy Topic (optional)**: if set, sends a push notification via
+- **ntfy.sh Notification Topic** (optional): if set, sends a push notification via
   [ntfy.sh](https://ntfy.sh) to this topic the first time a poll fails
   (not repeated on every subsequent failure in the same streak; only once
   a poll succeeds again does the next failure trigger a fresh
