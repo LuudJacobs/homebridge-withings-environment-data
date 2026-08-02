@@ -11,9 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Stale-data warning/notification no longer re-fires every time Homebridge
   restarts while the same stale reading is still the newest one on record.
-  The "already warned about this" state is now persisted to disk (tied to
-  the specific reading it was raised for) instead of living only in memory,
-  and still resets correctly once a fresher reading comes in.
+  The "already warned about this" state, and the last-known reading date
+  it applies to, are now both persisted to disk instead of living only in
+  memory (a first fix persisted only the former, which still misfired if
+  the first poll after a restart happened to fail), and still reset
+  correctly once a fresher reading comes in.
 
 ## [1.2.0] - 2026-07-31
 

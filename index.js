@@ -103,11 +103,6 @@ class WithingsEnvironmentDataPlatform {
     // missed poll — reset once a poll succeeds again.
     this.hasNotifiedFailure = false;
 
-    // Unix seconds of the newest reading actually seen so far (from the
-    // Withings measurement itself, not from a successful poll) — used to
-    // detect the scale going quiet rather than the plugin failing to poll.
-    // Warn/notify once per stale streak, reset once a fresher reading comes in.
-    this.lastReadingDate = null;
     this.warnedMissingReadingDate = false;
 
     // The long-lived (~1 week) session_key that lets us skip email/password/2FA
@@ -118,6 +113,13 @@ class WithingsEnvironmentDataPlatform {
     this.sessionStatePath = path.join(this.api.user.storagePath(), SESSION_STATE_FILENAME);
     const state = this.loadPersistedState();
     this.sessionKey = state.sessionKey ?? null;
+    // Unix seconds of the newest reading actually seen so far (from the Withings
+    // measurement itself, not from a successful poll) — used to detect the scale
+    // going quiet rather than the plugin failing to poll. Persisted and restored
+    // immediately on boot (rather than waiting on the first poll to repopulate
+    // it) so a restart can't be mistaken for "no reading yet" and wrongly clear
+    // an active stale-warning below.
+    this.lastReadingDate = state.lastReadingDate ?? null;
     // The readingDate (unix seconds) we last sent a stale-data warning/notification
     // for, or null if not currently in a warned state. Persisted so a Homebridge
     // restart doesn't re-notify about a reading we've already warned about — it
@@ -143,7 +145,11 @@ class WithingsEnvironmentDataPlatform {
     try {
       fs.writeFileSync(
         this.sessionStatePath,
-        JSON.stringify({ sessionKey: this.sessionKey, staleWarnedForReadingDate: this.staleWarnedForReadingDate })
+        JSON.stringify({
+          sessionKey: this.sessionKey,
+          lastReadingDate: this.lastReadingDate,
+          staleWarnedForReadingDate: this.staleWarnedForReadingDate,
+        })
       );
     } catch (err) {
       this.log.warn(`Could not persist session state file: ${err.message}`);
@@ -423,8 +429,9 @@ class WithingsEnvironmentDataPlatform {
           'Withings measurement data has no recognizable date field; stale data detection is disabled until this is fixed.'
         );
       }
-    } else if (readingDate !== null && readingDate !== undefined) {
+    } else if (readingDate !== null && readingDate !== undefined && readingDate !== this.lastReadingDate) {
       this.lastReadingDate = readingDate;
+      this.persistState();
     }
 
     if (co2 !== null && co2 !== undefined) {
