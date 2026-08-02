@@ -6,6 +6,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.2.1] - 2026-08-02
+
+### Changed
+- The stale-data log warning now logs on every poll while data remains
+  stale (matching how missed poll cycles are already logged), instead of
+  only once per stale streak.
+
+### Fixed
+- The stale-data ntfy notification no longer re-fires every time
+  Homebridge restarts while the same stale reading is still the newest one
+  on record. The "already notified about this" state, and the last-known
+  reading date it applies to, are now both persisted to disk instead of
+  living only in memory (a first fix persisted only the former, which
+  still misfired if the first poll after a restart happened to fail), and
+  still reset correctly once a fresher reading comes in.
+
 ## [1.2.0] - 2026-07-31
 
 ### Added

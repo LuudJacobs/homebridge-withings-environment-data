@@ -103,12 +103,6 @@ class WithingsEnvironmentDataPlatform {
     // missed poll — reset once a poll succeeds again.
     this.hasNotifiedFailure = false;
 
-    // Unix seconds of the newest reading actually seen so far (from the
-    // Withings measurement itself, not from a successful poll) — used to
-    // detect the scale going quiet rather than the plugin failing to poll.
-    // Warn/notify once per stale streak, reset once a fresher reading comes in.
-    this.lastReadingDate = null;
-    this.staleDataWarned = false;
     this.warnedMissingReadingDate = false;
 
     // The long-lived (~1 week) session_key that lets us skip email/password/2FA
@@ -117,26 +111,48 @@ class WithingsEnvironmentDataPlatform {
     // it, since repeatedly hitting the password endpoint appears to be heavily
     // throttled by Withings.
     this.sessionStatePath = path.join(this.api.user.storagePath(), SESSION_STATE_FILENAME);
-    this.sessionKey = this.loadSessionKey();
+    const state = this.loadPersistedState();
+    this.sessionKey = state.sessionKey ?? null;
+    // Unix seconds of the newest reading actually seen so far (from the Withings
+    // measurement itself, not from a successful poll) — used to detect the scale
+    // going quiet rather than the plugin failing to poll. Persisted and restored
+    // immediately on boot (rather than waiting on the first poll to repopulate
+    // it) so a restart can't be mistaken for "no reading yet" and wrongly clear
+    // an active stale-warning below.
+    this.lastReadingDate = state.lastReadingDate ?? null;
+    // The readingDate (unix seconds) we last sent a stale-data *notification* for,
+    // or null if not currently in a notified state. The log warning itself repeats
+    // every poll while data stays stale (like missed-poll-cycle failures do), but
+    // this gates the ntfy notification to once per distinct stale reading, and is
+    // persisted so a Homebridge restart doesn't re-notify about a reading we've
+    // already notified about — it only resets once a fresher reading comes in.
+    this.staleNotifiedForReadingDate = state.staleNotifiedForReadingDate ?? null;
 
     this.api.on('didFinishLaunching', () => this.discoverDevices());
   }
 
-  loadSessionKey() {
+  loadPersistedState() {
     try {
       const raw = fs.readFileSync(this.sessionStatePath, 'utf8');
-      return JSON.parse(raw).sessionKey ?? null;
+      return JSON.parse(raw);
     } catch (err) {
       if (err.code !== 'ENOENT') {
         this.log.warn(`Could not read session state file: ${err.message}`);
       }
-      return null;
+      return {};
     }
   }
 
-  saveSessionKey(sessionKey) {
+  persistState() {
     try {
-      fs.writeFileSync(this.sessionStatePath, JSON.stringify({ sessionKey }));
+      fs.writeFileSync(
+        this.sessionStatePath,
+        JSON.stringify({
+          sessionKey: this.sessionKey,
+          lastReadingDate: this.lastReadingDate,
+          staleNotifiedForReadingDate: this.staleNotifiedForReadingDate,
+        })
+      );
     } catch (err) {
       this.log.warn(`Could not persist session state file: ${err.message}`);
     }
@@ -161,7 +177,7 @@ class WithingsEnvironmentDataPlatform {
     if (result.sessionKey) {
       if (result.sessionKey !== this.sessionKey) {
         this.sessionKey = result.sessionKey;
-        this.saveSessionKey(result.sessionKey);
+        this.persistState();
         this.log.info('Withings full login succeeded; cached the new session for future polls.');
       } else {
         this.log.info('Withings full login succeeded; session token unchanged.');
@@ -354,16 +370,22 @@ class WithingsEnvironmentDataPlatform {
   async checkStaleData() {
     const stale = this.isDataStale();
 
-    if (stale && !this.staleDataWarned) {
-      this.staleDataWarned = true;
+    if (stale) {
       const { date, time } = this.formatStaleDateTime(this.lastReadingDate);
       this.log.warn(`Withings data is stale: last recorded at ${date} ${time}`);
-      await this.sendNtfyNotification(
-        `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
-        'Homebridge: Withings Environment Data is out of date'
-      );
-    } else if (!stale && this.staleDataWarned) {
-      this.staleDataWarned = false;
+
+      const alreadyNotifiedForThisReading = this.staleNotifiedForReadingDate === this.lastReadingDate;
+      if (!alreadyNotifiedForThisReading) {
+        this.staleNotifiedForReadingDate = this.lastReadingDate;
+        this.persistState();
+        await this.sendNtfyNotification(
+          `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
+          'Homebridge: Withings Environment Data is out of date'
+        );
+      }
+    } else if (this.staleNotifiedForReadingDate !== null) {
+      this.staleNotifiedForReadingDate = null;
+      this.persistState();
       this.log.info('Withings: fresh data has been recorded.');
     }
   }
@@ -411,8 +433,9 @@ class WithingsEnvironmentDataPlatform {
           'Withings measurement data has no recognizable date field; stale data detection is disabled until this is fixed.'
         );
       }
-    } else if (readingDate !== null && readingDate !== undefined) {
+    } else if (readingDate !== null && readingDate !== undefined && readingDate !== this.lastReadingDate) {
       this.lastReadingDate = readingDate;
+      this.persistState();
     }
 
     if (co2 !== null && co2 !== undefined) {
