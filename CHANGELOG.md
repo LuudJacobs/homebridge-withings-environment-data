@@ -16,11 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   doesn't create or update a HomeKit accessory
 
 ### Changed
-- Config UI reorganized: CO2/Air Quality thresholds moved into a collapsed
-  "Air Quality" fieldset with shorter field titles and fewer descriptions,
-  credentials moved into an expanded "Authentication" fieldset, MQTT
-  settings into a collapsed "MQTT" fieldset; Poll Interval moved below Air
-  Quality
+- Config UI reorganized: Name, then an expanded "Authentication" fieldset,
+  the Expose/Publish checkboxes, a collapsed "MQTT" fieldset, a collapsed
+  "Air Quality" fieldset (shorter field titles, fewer descriptions), Poll
+  Interval, No Response After Missed Polls, Stale Data Warning Threshold,
+  ntfy.sh Notification Topic (renamed from "ntfy Topic (optional)")
+- `displayName` set in `package.json` so Homebridge Config UI shows
+  "Withings Environment Data" in the Plugins list instead of the raw npm
+  package name
+- Shortened a few config field descriptions (No Response After Missed
+  Polls, Stale Data Warning Threshold, ntfy.sh Notification Topic)
 
 ## [1.2.1] - 2026-08-02
 
