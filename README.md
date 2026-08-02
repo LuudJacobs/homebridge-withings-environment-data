@@ -1,4 +1,4 @@
-# Homebridge Withings Environment Data v1.2.1
+# Withings Environment Data v1.2.1
 
 **This Homebridge plugin has been 100% vibe coded with Claude.**
 
@@ -48,6 +48,17 @@ accessory:
 These appear automatically in the Home app after Homebridge restarts, no
 further setup needed. Readings update on the poll interval set below.
 
+HomeKit exposure and MQTT publishing are independent and can each be
+turned on or off in Configuration:
+
+- **Expose sensors as HomeKit Accessories** (default on): when off, the
+  plugin still polls Withings (and still publishes to MQTT, if enabled),
+  but doesn't create or update any HomeKit accessory.
+- **Publish to MQTT** (default off): when on, every successful poll
+  publishes a retained message to topic `withingsenv/ws-50` on the
+  configured broker, shaped like
+  `{"temperature": 25.2, "co2_levels": 674}`.
+
 ### Configuration
 
 All settings are entered through the Homebridge Config UI (Plugins tab,
@@ -69,9 +80,14 @@ Fields:
   matching the scale's own upload cadence).
 - **CO2 Detected Threshold (ppm)**: ppm above which the CarbonDioxideSensor
   reports "abnormal" (default 1000).
-- **Air Quality: Excellent/Good/Fair/Inferior below (ppm)**: the four ppm
-  boundaries the AirQualitySensor category is based on (defaults 800, 1000,
-  1500, 2000).
+- **Excellent/Good/Fair/Inferior below (ppm)**: the four ppm boundaries the
+  AirQualitySensor category is based on (defaults 800, 1000, 1500, 2000).
+  Anything above the Inferior boundary is reported as Poor.
+- **Expose sensors as HomeKit Accessories**: see [Usage](#usage) above.
+  Default on.
+- **Publish to MQTT / Host / Port / Username / Password**: see
+  [Usage](#usage) above. Publishing is off by default; Port defaults to
+  1883. Username/Password are optional, for brokers that require auth.
 - **Stale Data Warning Threshold (hours)**: if the newest reading from the
   scale itself (not the plugin's poll) is older than this many hours — e.g.
   nobody's stood on the scale in a while — a warning is logged on every

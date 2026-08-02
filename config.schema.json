@@ -12,6 +12,43 @@
         "default": "Withings Environment",
         "required": true
       },
+      "co2DetectedThresholdPpm": {
+        "title": "CO2 Detected Threshold (ppm)",
+        "type": "integer",
+        "default": 1000,
+        "minimum": 400
+      },
+      "airQualityExcellentMaxPpm": {
+        "title": "Excellent below (ppm)",
+        "type": "integer",
+        "default": 800,
+        "minimum": 1
+      },
+      "airQualityGoodMaxPpm": {
+        "title": "Good below (ppm)",
+        "type": "integer",
+        "default": 1000,
+        "minimum": 1
+      },
+      "airQualityFairMaxPpm": {
+        "title": "Fair below (ppm)",
+        "type": "integer",
+        "default": 1500,
+        "minimum": 1
+      },
+      "airQualityInferiorMaxPpm": {
+        "title": "Inferior below (ppm)",
+        "type": "integer",
+        "default": 2000,
+        "minimum": 1,
+        "description": "Anything above is reported as Poor."
+      },
+      "pollIntervalMinutes": {
+        "title": "Poll Interval (minutes)",
+        "type": "integer",
+        "default": 30,
+        "minimum": 5
+      },
       "email": {
         "title": "Withings Email",
         "type": "string",
@@ -37,45 +74,37 @@
         "required": true,
         "description": "The value of that same 2fa_token_<hash> cookie"
       },
-      "pollIntervalMinutes": {
-        "title": "Poll Interval (minutes)",
-        "type": "integer",
-        "default": 30,
-        "minimum": 5
+      "exposeAsHomekitAccessories": {
+        "title": "Expose sensors as HomeKit Accessories",
+        "type": "boolean",
+        "default": true
       },
-      "co2DetectedThresholdPpm": {
-        "title": "CO2 Detected Threshold (ppm)",
-        "type": "integer",
-        "default": 1000,
-        "minimum": 400
+      "publishToMqtt": {
+        "title": "Publish to MQTT",
+        "type": "boolean",
+        "default": false,
+        "description": "Publish sensor data to configured MQTT broker. Topic name: \"withingsenv/ws-50\""
       },
-      "airQualityExcellentMaxPpm": {
-        "title": "Air Quality: Excellent below (ppm)",
-        "type": "integer",
-        "default": 800,
-        "minimum": 1,
-        "description": "CO2 readings below this are reported as Excellent air quality."
+      "mqttHost": {
+        "title": "Host",
+        "type": "string",
+        "description": "Broker hostname or IP address."
       },
-      "airQualityGoodMaxPpm": {
-        "title": "Air Quality: Good below (ppm)",
+      "mqttPort": {
+        "title": "Port",
         "type": "integer",
-        "default": 1000,
-        "minimum": 1,
-        "description": "CO2 readings below this are reported as Good."
+        "default": 1883
       },
-      "airQualityFairMaxPpm": {
-        "title": "Air Quality: Fair below (ppm)",
-        "type": "integer",
-        "default": 1500,
-        "minimum": 1,
-        "description": "CO2 readings below this are reported as Fair."
+      "mqttUsername": {
+        "title": "Username",
+        "type": "string"
       },
-      "airQualityInferiorMaxPpm": {
-        "title": "Air Quality: Inferior below (ppm)",
-        "type": "integer",
-        "default": 2000,
-        "minimum": 1,
-        "description": "CO2 readings below this are reported as Inferior. Anything above is reported as Poor."
+      "mqttPassword": {
+        "title": "Password",
+        "type": "string",
+        "x-schema-form": {
+          "type": "password"
+        }
       },
       "noResponseAfterMissedPolls": {
         "title": "No Response After Missed Polls",
@@ -97,5 +126,51 @@
         "description": "If set, sends a push notification via ntfy.sh to this topic the first time a poll fails (not repeated on every subsequent failure in the same streak). Leave blank to disable."
       }
     }
-  }
+  },
+  "layout": [
+    "name",
+    {
+      "type": "fieldset",
+      "title": "Air Quality",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        "co2DetectedThresholdPpm",
+        "airQualityExcellentMaxPpm",
+        "airQualityGoodMaxPpm",
+        "airQualityFairMaxPpm",
+        "airQualityInferiorMaxPpm"
+      ]
+    },
+    "pollIntervalMinutes",
+    {
+      "type": "fieldset",
+      "title": "Authentication",
+      "expandable": true,
+      "expanded": true,
+      "items": [
+        "email",
+        "password",
+        "trustCookieName",
+        "trustCookieValue"
+      ]
+    },
+    "exposeAsHomekitAccessories",
+    "publishToMqtt",
+    {
+      "type": "fieldset",
+      "title": "MQTT",
+      "expandable": true,
+      "expanded": false,
+      "items": [
+        "mqttHost",
+        "mqttPort",
+        "mqttUsername",
+        "mqttPassword"
+      ]
+    },
+    "noResponseAfterMissedPolls",
+    "staleDataWarningThresholdHours",
+    "ntfyTopic"
+  ]
 }
