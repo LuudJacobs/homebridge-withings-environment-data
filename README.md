@@ -74,9 +74,10 @@ Fields:
   1500, 2000).
 - **Stale Data Warning Threshold (hours)**: if the newest reading from the
   scale itself (not the plugin's poll) is older than this many hours — e.g.
-  nobody's stood on the scale in a while — a warning is logged, the sensors
-  show "No Response" in the Home app, and (if ntfy Topic is set) a
-  notification is sent. Default 4. This is separate from poll failures.
+  nobody's stood on the scale in a while — a warning is logged on every
+  poll for as long as it stays stale, the sensors show "No Response" in the
+  Home app, and (if ntfy Topic is set) a single notification is sent for
+  that stale reading. Default 4. This is separate from poll failures.
 - **ntfy Topic (optional)**: if set, sends a push notification via
   [ntfy.sh](https://ntfy.sh) to this topic the first time a poll fails
   (not repeated on every subsequent failure in the same streak; only once
