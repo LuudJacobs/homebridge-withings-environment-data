@@ -1,4 +1,4 @@
-# Homebridge Withings Environment Data v1.2.1
+# Withings Environment Data v1.2.1
 
 **This Homebridge plugin has been 100% vibe coded with Claude.**
 
