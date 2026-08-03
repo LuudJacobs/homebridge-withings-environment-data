@@ -88,6 +88,7 @@
       "mqttHost": {
         "title": "Host",
         "type": "string",
+        "default": "localhost",
         "description": "Broker hostname or IP address."
       },
       "mqttPort": {
