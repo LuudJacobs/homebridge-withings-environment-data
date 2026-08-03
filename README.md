@@ -55,9 +55,8 @@ turned on or off in Configuration:
   plugin still polls Withings (and still publishes to MQTT, if enabled),
   but doesn't create or update any HomeKit accessory.
 - **Publish to MQTT** (default off): when on, every successful poll
-  publishes a retained message to topic `withingsenv/ws-50` on the
-  configured broker, shaped like
-  `{"temperature": 25.2, "co2_levels": 674}`.
+  publishes a message to topic `withingsenv/ws-50` on the configured
+  broker, shaped like `{"temperature": 25.2, "co2_levels": 674}`.
 
 ### Configuration
 
