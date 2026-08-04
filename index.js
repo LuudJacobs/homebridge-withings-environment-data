@@ -354,6 +354,16 @@ class WithingsEnvironmentDataPlatform {
     // quiet (no one's stood on it) while polls keep succeeding fine, so this
     // is checked every cycle against whatever the newest reading actually is.
     await this.checkStaleData();
+
+    // A successful poll above already cleared the fault via setFault(false),
+    // even though the reading it just fetched can itself be stale. Re-assert
+    // the fault in that case so anything reading StatusFault directly (e.g.
+    // Homebridge's own accessory list, which shows cached values rather than
+    // invoking the onGet handlers the way the Home app does) reflects
+    // staleness too, not just throwIfStale()'s "No Response" to HomeKit.
+    if (this.isDataStale()) {
+      this.setFault(true);
+    }
   }
 
   async sendNtfyNotification(message, title = 'Homebridge: Getting Withings Environment Data Failed!') {
