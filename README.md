@@ -55,9 +55,11 @@ turned on or off in Configuration:
   plugin still polls Withings (and still publishes to MQTT, if enabled),
   but doesn't create or update any HomeKit accessory.
 - **Publish to MQTT** (default off): when on, every successful poll
-  publishes a retained message to topic `withingsenv/ws-50` on the
-  configured broker, shaped like
-  `{"temperature": 25.2, "co2_levels": 674}`.
+  publishes a message to topic `withingsenv/ws-50` on the configured
+  broker, shaped like `{"temperature": 25.2, "co2_levels": 674}`. Messages
+  aren't retained unless the Retain option is enabled. Publishing pauses
+  once the data is stale (see Stale Data Warning Threshold below) and
+  resumes once a fresh reading comes in.
 
 ### Configuration
 
@@ -85,9 +87,10 @@ Fields:
   Anything above the Inferior boundary is reported as Poor.
 - **Expose sensors as HomeKit Accessories**: see [Usage](#usage) above.
   Default on.
-- **Publish to MQTT / Host / Port / Username / Password**: see
+- **Publish to MQTT / Host / Port / Username / Password / Retain**: see
   [Usage](#usage) above. Publishing is off by default; Port defaults to
   1883. Username/Password are optional, for brokers that require auth.
+  Retain is off by default.
 - **Stale Data Warning Threshold (hours)**: if the newest reading from the
   scale itself (not the plugin's poll) is older than this many hours — e.g.
   nobody's stood on the scale in a while — a warning is logged on every

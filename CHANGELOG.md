@@ -6,6 +6,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- "Retain" checkbox in the MQTT fieldset (default off) to control whether
+  published MQTT messages set the retain flag
+
+### Changed
+- "Publish to MQTT" checkbox moved into the collapsed "MQTT" fieldset,
+  as its first item
+- MQTT publishing now pauses once the newest reading is past the Stale
+  Data Warning Threshold, resuming once a fresher reading comes in —
+  previously it kept republishing the same stale reading on every poll
+
+### Fixed
+- MQTT messages are no longer published with the retain flag set by
+  default (previously always retained)
+- "Publish to MQTT" and "Retain" checkboxes now actually default to
+  unchecked in Config UI (an explicit `"default": false` wasn't being
+  applied by the schema form and rendered checked instead)
+- When Retain is off, the plugin now clears any stale retained message
+  left on the broker from before (publishing with `retain:false` doesn't
+  remove an existing retained message on its own)
+
 ## [1.3.1] - 2026-08-03
 
 ### Fixed
