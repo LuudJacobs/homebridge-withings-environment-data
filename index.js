@@ -239,6 +239,13 @@ class WithingsEnvironmentDataPlatform {
       password: this.config.mqttPassword || undefined,
     });
     this.mqttClient.on('error', (err) => this.log.warn(`MQTT connection error: ${err.message}`));
+    if (this.config.mqttRetain !== true) {
+      // A publish with retain:false does NOT clear a previously-retained message —
+      // the broker keeps serving the last retained one until something explicitly
+      // clears it. Do that once per connect so turning Retain off actually stops
+      // new subscribers from seeing stale data.
+      this.mqttClient.on('connect', () => this.mqttClient.publish(MQTT_TOPIC, '', { retain: true }));
+    }
     this.api.on('shutdown', () => this.mqttClient.end());
   }
 
