@@ -82,7 +82,6 @@
       "publishToMqtt": {
         "title": "Publish to MQTT",
         "type": "boolean",
-        "default": false,
         "description": "Publish sensor data to configured MQTT broker. Topic name: \"withingsenv/ws-50\""
       },
       "mqttHost": {
@@ -110,7 +109,6 @@
       "mqttRetain": {
         "title": "Retain",
         "type": "boolean",
-        "default": false,
         "description": "Publish messages with the MQTT retain flag set, so new subscribers immediately get the last known reading."
       },
       "noResponseAfterMissedPolls": {
