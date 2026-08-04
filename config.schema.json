@@ -107,6 +107,12 @@
           "type": "password"
         }
       },
+      "mqttRetain": {
+        "title": "Retain",
+        "type": "boolean",
+        "default": false,
+        "description": "Publish messages with the MQTT retain flag set, so new subscribers immediately get the last known reading."
+      },
       "noResponseAfterMissedPolls": {
         "title": "No Response After Missed Polls",
         "type": "integer",
@@ -143,17 +149,18 @@
       ]
     },
     "exposeAsHomekitAccessories",
-    "publishToMqtt",
     {
       "type": "fieldset",
       "title": "MQTT",
       "expandable": true,
       "expanded": false,
       "items": [
+        "publishToMqtt",
         "mqttHost",
         "mqttPort",
         "mqttUsername",
-        "mqttPassword"
+        "mqttPassword",
+        "mqttRetain"
       ]
     },
     {
