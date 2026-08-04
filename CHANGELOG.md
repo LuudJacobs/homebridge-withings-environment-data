@@ -17,6 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - MQTT messages are no longer published with the retain flag set by
   default (previously always retained)
+- "Publish to MQTT" and "Retain" checkboxes now actually default to
+  unchecked in Config UI (an explicit `"default": false` wasn't being
+  applied by the schema form and rendered checked instead)
+- When Retain is off, the plugin now clears any stale retained message
+  left on the broker from before (publishing with `retain:false` doesn't
+  remove an existing retained message on its own)
 
 ## [1.3.1] - 2026-08-03
 
