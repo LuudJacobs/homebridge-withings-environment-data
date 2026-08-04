@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- "Retain" checkbox in the MQTT fieldset (default off) to control whether
+  published MQTT messages set the retain flag
+
+### Changed
+- "Publish to MQTT" checkbox moved into the collapsed "MQTT" fieldset,
+  as its first item
+
+### Fixed
+- MQTT messages are no longer published with the retain flag set by
+  default (previously always retained)
+
 ## [1.3.1] - 2026-08-03
 
 ### Fixed
