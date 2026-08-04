@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.3.3] - 2026-08-04
+
+### Fixed
+- Stale data now correctly shows a fault on the sensors' `StatusFault`
+  characteristic too, not just "No Response" in the Home app. A
+  successful poll always cleared the fault, even when the reading itself
+  was stale, so anything reading `StatusFault` directly instead of
+  calling the characteristic's get handler (e.g. Homebridge's own
+  accessory list) kept showing the sensors as fine
+
 ## [1.3.2] - 2026-08-04
 
 ### Added
