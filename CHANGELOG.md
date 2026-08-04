@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - "Publish to MQTT" checkbox moved into the collapsed "MQTT" fieldset,
   as its first item
+- MQTT publishing now pauses once the newest reading is past the Stale
+  Data Warning Threshold, resuming once a fresher reading comes in —
+  previously it kept republishing the same stale reading on every poll
 
 ### Fixed
 - MQTT messages are no longer published with the retain flag set by

@@ -251,6 +251,7 @@ class WithingsEnvironmentDataPlatform {
 
   publishMqttReading() {
     if (!this.mqttClient) return;
+    if (this.isDataStale()) return;
     const payload = JSON.stringify({ temperature: this.lastReading.temperature, co2_levels: this.lastReading.co2 });
     this.mqttClient.publish(MQTT_TOPIC, payload, { retain: this.config.mqttRetain === true });
   }
