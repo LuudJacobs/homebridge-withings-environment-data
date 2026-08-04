@@ -57,7 +57,9 @@ turned on or off in Configuration:
 - **Publish to MQTT** (default off): when on, every successful poll
   publishes a message to topic `withingsenv/ws-50` on the configured
   broker, shaped like `{"temperature": 25.2, "co2_levels": 674}`. Messages
-  aren't retained unless the Retain option is enabled.
+  aren't retained unless the Retain option is enabled. Publishing pauses
+  once the data is stale (see Stale Data Warning Threshold below) and
+  resumes once a fresh reading comes in.
 
 ### Configuration
 
