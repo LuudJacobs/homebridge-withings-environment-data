@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   measurement time (not poll/publish time). Format configurable via a new
   "Last Seen" dropdown: `ISO_8601` (default, UTC), `ISO_8601 local`,
   `epoch` (milliseconds), or `disabled` to omit the field
+- MQTT publishing now backfills every reading the scale buffered since the
+  last publish, not just the single newest one, published oldest first
 
 ### Changed
 - MQTT Retain is now on by default (previously off by default)
