@@ -68,7 +68,25 @@ async function fetchLatest({ cookieHeader, sessionToken, deviceId, userId }) {
     // used to detect the scale itself going quiet (e.g. nobody's stood on
     // it in a while), as opposed to the plugin failing to reach Withings.
     readingDate: co2Point?.date ?? tempPoint?.date ?? null,
+    // Full backlog within the window (getmeashf — "high frequency measure"),
+    // not just the newest point — the scale can buffer multiple readings
+    // internally between cloud syncs. Only used for MQTT backfill; HomeKit
+    // characteristics only ever reflect the single newest point above.
+    co2Series,
+    tempSeries,
   };
+}
+
+// Local-time ISO 8601 with UTC offset — Date's own toISOString() is always UTC.
+function toLocalIso8601(date) {
+  const pad = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` +
+    `${sign}${pad(offsetMinutes / 60)}:${pad(offsetMinutes % 60)}`
+  );
 }
 
 function mapCo2ToAirQuality(ppm, AirQuality, thresholds) {
@@ -122,6 +140,13 @@ class WithingsEnvironmentDataPlatform {
     // it) so a restart can't be mistaken for "no reading yet" and wrongly clear
     // an active stale-warning below.
     this.lastReadingDate = state.lastReadingDate ?? null;
+    // Unix seconds of the newest reading already published to MQTT, used to
+    // backfill any points buffered by the scale since the last publish rather
+    // than only ever sending the single newest one. Defaults to the already-
+    // known lastReadingDate (if any) on first boot after upgrading to this
+    // feature, so existing installs don't replay their entire pre-existing
+    // history — only genuinely new backlog from here on.
+    this.lastPublishedMqttDate = state.lastPublishedMqttDate ?? state.lastReadingDate ?? null;
     // The readingDate (unix seconds) we last sent a stale-data *notification* for,
     // or null if not currently in a notified state. The log warning itself repeats
     // every poll while data stays stale (like missed-poll-cycle failures do), but
@@ -152,6 +177,7 @@ class WithingsEnvironmentDataPlatform {
         JSON.stringify({
           sessionKey: this.sessionKey,
           lastReadingDate: this.lastReadingDate,
+          lastPublishedMqttDate: this.lastPublishedMqttDate,
           staleNotifiedForReadingDate: this.staleNotifiedForReadingDate,
         })
       );
@@ -239,7 +265,7 @@ class WithingsEnvironmentDataPlatform {
       password: this.config.mqttPassword || undefined,
     });
     this.mqttClient.on('error', (err) => this.log.warn(`MQTT connection error: ${err.message}`));
-    if (this.config.mqttRetain !== true) {
+    if (this.config.mqttRetain === false) {
       // A publish with retain:false does NOT clear a previously-retained message —
       // the broker keeps serving the last retained one until something explicitly
       // clears it. Do that once per connect so turning Retain off actually stops
@@ -249,11 +275,67 @@ class WithingsEnvironmentDataPlatform {
     this.api.on('shutdown', () => this.mqttClient.end());
   }
 
-  publishMqttReading() {
+  // Config UI doesn't reliably apply schema defaults on boolean fields (see
+  // v1.3.2), so "on by default" is expressed here as "anything but an explicit
+  // false", not via a schema default.
+  getMqttRetain() {
+    return this.config.mqttRetain !== false;
+  }
+
+  getMqttLastSeenFormat() {
+    const valid = ['ISO_8601', 'ISO_8601_local', 'epoch', 'disable'];
+    return valid.includes(this.config.mqttLastSeen) ? this.config.mqttLastSeen : 'ISO_8601';
+  }
+
+  formatLastSeen(readingDateUnixSeconds) {
+    const format = this.getMqttLastSeenFormat();
+    if (format === 'disable' || readingDateUnixSeconds === null || readingDateUnixSeconds === undefined) {
+      return undefined;
+    }
+
+    const date = new Date(readingDateUnixSeconds * 1000);
+    if (format === 'epoch') return date.getTime();
+    if (format === 'ISO_8601_local') return toLocalIso8601(date);
+    return date.toISOString();
+  }
+
+  // Publishes every buffered point newer than the last one we published, oldest
+  // first, instead of only ever the single newest — so a gap where the scale
+  // synced a backlog of readings (e.g. after being offline) gets backfilled on
+  // the MQTT side rather than collapsed into one message. HomeKit is
+  // unaffected: it only ever shows the single newest value (see applyReading).
+  publishMqttReadings(co2Series, tempSeries) {
     if (!this.mqttClient) return;
     if (this.isDataStale()) return;
-    const payload = JSON.stringify({ temperature: this.lastReading.temperature, co2_levels: this.lastReading.co2 });
-    this.mqttClient.publish(MQTT_TOPIC, payload, { retain: this.config.mqttRetain === true });
+
+    const byDate = new Map();
+    for (const point of co2Series) {
+      if (!byDate.has(point.date)) byDate.set(point.date, {});
+      byDate.get(point.date).co2 = point.value;
+    }
+    for (const point of tempSeries) {
+      if (!byDate.has(point.date)) byDate.set(point.date, {});
+      byDate.get(point.date).temperature = point.value;
+    }
+
+    const unpublished = [...byDate.entries()]
+      .filter(([date]) => this.lastPublishedMqttDate === null || date > this.lastPublishedMqttDate)
+      .sort(([a], [b]) => a - b);
+
+    for (const [date, reading] of unpublished) {
+      const payload = {};
+      if (reading.co2 !== undefined) payload.co2_levels = reading.co2;
+      if (reading.temperature !== undefined) payload.temperature = reading.temperature;
+      // The actual Withings measurement time, not when this poll ran or published.
+      const lastSeen = this.formatLastSeen(date);
+      if (lastSeen !== undefined) payload.last_seen = lastSeen;
+      this.mqttClient.publish(MQTT_TOPIC, JSON.stringify(payload), { retain: this.getMqttRetain() });
+      this.lastPublishedMqttDate = date;
+    }
+
+    if (unpublished.length > 0) {
+      this.persistState();
+    }
   }
 
   setupServices(accessory) {
@@ -319,14 +401,14 @@ class WithingsEnvironmentDataPlatform {
         }
       }
 
-      const { co2, temperature, readingDate } = await fetchLatest({
+      const { co2, temperature, readingDate, co2Series, tempSeries } = await fetchLatest({
         cookieHeader,
         sessionToken,
         deviceId: this.deviceId,
         userId: this.userId,
       });
 
-      this.applyReading(co2, temperature, readingDate);
+      this.applyReading(co2, temperature, readingDate, co2Series, tempSeries);
       this.setFault(false);
       this.missedCycles = 0;
       this.hasNotifiedFailure = false;
@@ -481,7 +563,7 @@ class WithingsEnvironmentDataPlatform {
     return this.lastReading.temperature;
   }
 
-  applyReading(co2, temperature, readingDate) {
+  applyReading(co2, temperature, readingDate, co2Series = [], tempSeries = []) {
     const co2Threshold = this.getCo2Threshold();
     const hasReading = (co2 !== null && co2 !== undefined) || (temperature !== null && temperature !== undefined);
 
@@ -526,7 +608,7 @@ class WithingsEnvironmentDataPlatform {
     }
 
     if (hasReading) {
-      this.publishMqttReading();
+      this.publishMqttReadings(co2Series, tempSeries);
     }
   }
 

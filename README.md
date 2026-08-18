@@ -1,4 +1,4 @@
-# Withings Environment Data v1.3.3
+# Withings Environment Data v1.4.0
 
 **This Homebridge plugin has been 100% vibe coded with Claude.**
 
@@ -54,12 +54,17 @@ turned on or off in Configuration:
 - **Expose sensors as HomeKit Accessories** (default on): when off, the
   plugin still polls Withings (and still publishes to MQTT, if enabled),
   but doesn't create or update any HomeKit accessory.
-- **Publish to MQTT** (default off): when on, every successful poll
-  publishes a message to topic `withingsenv/ws-50` on the configured
-  broker, shaped like `{"temperature": 25.2, "co2_levels": 674}`. Messages
-  aren't retained unless the Retain option is enabled. Publishing pauses
-  once the data is stale (see Stale Data Warning Threshold below) and
-  resumes once a fresh reading comes in.
+- **Publish to MQTT** (default off): when on, publishes a message to topic
+  `withingsenv/ws-50` on the configured broker, shaped like
+  `{"temperature": 25.2, "co2_levels": 674, "last_seen":
+  "2026-08-18T20:30:00.000Z"}`, for every reading buffered by the scale
+  since the last publish, not just the newest — the WS-50 can take several
+  readings internally before it syncs, and this backfills that gap instead
+  of collapsing it into one message. Each is published in the order it was
+  actually recorded, oldest first. Messages are retained by default.
+  Publishing pauses entirely once the newest known reading is stale (see
+  Stale Data Warning Threshold below) and resumes (with any accumulated
+  backlog) once a fresh reading comes in.
 
 ### Configuration
 
@@ -87,10 +92,15 @@ Fields:
   Anything above the Inferior boundary is reported as Poor.
 - **Expose sensors as HomeKit Accessories**: see [Usage](#usage) above.
   Default on.
-- **Publish to MQTT / Host / Port / Username / Password / Retain**: see
-  [Usage](#usage) above. Publishing is off by default; Port defaults to
-  1883. Username/Password are optional, for brokers that require auth.
-  Retain is off by default.
+- **Publish to MQTT / Host / Port / Username / Password / Last Seen /
+  Retain**: see [Usage](#usage) above. Publishing is off by default; Port
+  defaults to 1883. Username/Password are optional, for brokers that
+  require auth. **Last Seen** controls the format of the `last_seen`
+  field, which always reflects the time the scale actually took the
+  measurement (not when the plugin polled or published it): `ISO_8601`
+  (default, UTC), `ISO_8601 local` (with UTC offset), `epoch`
+  (milliseconds), or `disabled` to omit the field entirely. Retain is on
+  by default.
 - **Stale Data Warning Threshold (hours)**: if the newest reading from the
   scale itself (not the plugin's poll) is older than this many hours — e.g.
   nobody's stood on the scale in a while — a warning is logged on every

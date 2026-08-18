@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- `last_seen` field in the MQTT payload, reflecting the actual Withings
+  measurement time (not poll/publish time). Format configurable via a new
+  "Last Seen" dropdown: `ISO_8601` (default, UTC), `ISO_8601 local`,
+  `epoch` (milliseconds), or `disabled` to omit the field
+- MQTT publishing now backfills every reading the scale buffered since the
+  last publish, not just the single newest one, published oldest first
+
+### Changed
+- MQTT Retain is now on by default (previously off by default)
+
 ## [1.3.3] - 2026-08-04
 
 ### Fixed
