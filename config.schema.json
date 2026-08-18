@@ -106,6 +106,18 @@
           "type": "password"
         }
       },
+      "mqttLastSeen": {
+        "title": "Last Seen",
+        "type": "string",
+        "default": "ISO_8601",
+        "oneOf": [
+          { "title": "ISO_8601 (default)", "enum": ["ISO_8601"] },
+          { "title": "ISO_8601 local", "enum": ["ISO_8601_local"] },
+          { "title": "epoch (ms)", "enum": ["epoch"] },
+          { "title": "disabled", "enum": ["disable"] }
+        ],
+        "description": "Adds a last_seen field to the MQTT payload with the time of the newest Withings measurement (like zigbee2mqtt)."
+      },
       "mqttRetain": {
         "title": "Retain",
         "type": "boolean",
@@ -158,6 +170,7 @@
         "mqttPort",
         "mqttUsername",
         "mqttPassword",
+        "mqttLastSeen",
         "mqttRetain"
       ]
     },

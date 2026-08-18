@@ -71,6 +71,18 @@ async function fetchLatest({ cookieHeader, sessionToken, deviceId, userId }) {
   };
 }
 
+// Local-time ISO 8601 with UTC offset — Date's own toISOString() is always UTC.
+function toLocalIso8601(date) {
+  const pad = (n) => String(Math.floor(Math.abs(n))).padStart(2, '0');
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  return (
+    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
+    `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}` +
+    `${sign}${pad(offsetMinutes / 60)}:${pad(offsetMinutes % 60)}`
+  );
+}
+
 function mapCo2ToAirQuality(ppm, AirQuality, thresholds) {
   if (ppm < thresholds.excellentMaxPpm) return AirQuality.EXCELLENT;
   if (ppm < thresholds.goodMaxPpm) return AirQuality.GOOD;
@@ -239,7 +251,7 @@ class WithingsEnvironmentDataPlatform {
       password: this.config.mqttPassword || undefined,
     });
     this.mqttClient.on('error', (err) => this.log.warn(`MQTT connection error: ${err.message}`));
-    if (this.config.mqttRetain !== true) {
+    if (this.config.mqttRetain === false) {
       // A publish with retain:false does NOT clear a previously-retained message —
       // the broker keeps serving the last retained one until something explicitly
       // clears it. Do that once per connect so turning Retain off actually stops
@@ -249,11 +261,38 @@ class WithingsEnvironmentDataPlatform {
     this.api.on('shutdown', () => this.mqttClient.end());
   }
 
+  // Config UI doesn't reliably apply schema defaults on boolean fields (see
+  // v1.3.2), so "on by default" is expressed here as "anything but an explicit
+  // false", not via a schema default.
+  getMqttRetain() {
+    return this.config.mqttRetain !== false;
+  }
+
+  getMqttLastSeenFormat() {
+    const valid = ['ISO_8601', 'ISO_8601_local', 'epoch', 'disable'];
+    return valid.includes(this.config.mqttLastSeen) ? this.config.mqttLastSeen : 'ISO_8601';
+  }
+
+  formatLastSeen(readingDateUnixSeconds) {
+    const format = this.getMqttLastSeenFormat();
+    if (format === 'disable' || readingDateUnixSeconds === null || readingDateUnixSeconds === undefined) {
+      return undefined;
+    }
+
+    const date = new Date(readingDateUnixSeconds * 1000);
+    if (format === 'epoch') return date.getTime();
+    if (format === 'ISO_8601_local') return toLocalIso8601(date);
+    return date.toISOString();
+  }
+
   publishMqttReading() {
     if (!this.mqttClient) return;
     if (this.isDataStale()) return;
-    const payload = JSON.stringify({ temperature: this.lastReading.temperature, co2_levels: this.lastReading.co2 });
-    this.mqttClient.publish(MQTT_TOPIC, payload, { retain: this.config.mqttRetain === true });
+    const payload = { temperature: this.lastReading.temperature, co2_levels: this.lastReading.co2 };
+    // The actual Withings measurement time, not when this poll ran or published.
+    const lastSeen = this.formatLastSeen(this.lastReadingDate);
+    if (lastSeen !== undefined) payload.last_seen = lastSeen;
+    this.mqttClient.publish(MQTT_TOPIC, JSON.stringify(payload), { retain: this.getMqttRetain() });
   }
 
   setupServices(accessory) {
