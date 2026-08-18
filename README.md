@@ -54,12 +54,17 @@ turned on or off in Configuration:
 - **Expose sensors as HomeKit Accessories** (default on): when off, the
   plugin still polls Withings (and still publishes to MQTT, if enabled),
   but doesn't create or update any HomeKit accessory.
-- **Publish to MQTT** (default off): when on, every successful poll
-  publishes a message to topic `withingsenv/ws-50` on the configured
-  broker, shaped like `{"temperature": 25.2, "co2_levels": 674, "last_seen":
-  "2026-08-18T20:30:00.000Z"}`. Messages are retained by default. Publishing
-  pauses once the data is stale (see Stale Data Warning Threshold below) and
-  resumes once a fresh reading comes in.
+- **Publish to MQTT** (default off): when on, publishes a message to topic
+  `withingsenv/ws-50` on the configured broker, shaped like
+  `{"temperature": 25.2, "co2_levels": 674, "last_seen":
+  "2026-08-18T20:30:00.000Z"}`, for every reading buffered by the scale
+  since the last publish, not just the newest — the WS-50 can take several
+  readings internally before it syncs, and this backfills that gap instead
+  of collapsing it into one message. Each is published in the order it was
+  actually recorded, oldest first. Messages are retained by default.
+  Publishing pauses entirely once the newest known reading is stale (see
+  Stale Data Warning Threshold below) and resumes (with any accumulated
+  backlog) once a fresh reading comes in.
 
 ### Configuration
 
