@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 
 ### Added
+- "Send Stale Data Notification" checkbox (default on): lets the ntfy
+  notification for stale data be turned off independently of the log
+  warning and "No Response" in the Home app, which still happen either way
+
+## [1.4.0] - 2026-08-19
+
+### Added
 - `last_seen` field in the MQTT payload, reflecting the actual Withings
   measurement time (not poll/publish time). Format configurable via a new
   "Last Seen" dropdown: `ISO_8601` (default, UTC), `ISO_8601 local`,
