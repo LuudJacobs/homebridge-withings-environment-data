@@ -142,11 +142,17 @@ class WithingsEnvironmentDataPlatform {
     this.lastReadingDate = state.lastReadingDate ?? null;
     // Unix seconds of the newest reading already published to MQTT, used to
     // backfill any points buffered by the scale since the last publish rather
-    // than only ever sending the single newest one. Defaults to the already-
-    // known lastReadingDate (if any) on first boot after upgrading to this
-    // feature, so existing installs don't replay their entire pre-existing
-    // history — only genuinely new backlog from here on.
-    this.lastPublishedMqttDate = state.lastPublishedMqttDate ?? state.lastReadingDate ?? null;
+    // than only ever sending the single newest one.
+    //
+    // Deliberately NOT seeded from lastReadingDate when absent: that tracks the
+    // newest reading the *poller* has seen, which is not the same as the newest
+    // reading actually *published*. Seeding from it silently strands everything
+    // in between (found live: ~12h of readings were skipped on upgrade because
+    // lastReadingDate had moved on while MQTT publishing was blocked). Starting
+    // at null instead republishes at most one window on first run, which the
+    // watermark then dedups from — failing toward a duplicate rather than
+    // toward permanent data loss.
+    this.lastPublishedMqttDate = state.lastPublishedMqttDate ?? null;
     // The readingDate (unix seconds) we last sent a stale-data *notification* for,
     // or null if not currently in a notified state. The log warning itself repeats
     // every poll while data stays stale (like missed-poll-cycle failures do), but
@@ -265,6 +271,9 @@ class WithingsEnvironmentDataPlatform {
       password: this.config.mqttPassword || undefined,
     });
     this.mqttClient.on('error', (err) => this.log.warn(`MQTT connection error: ${err.message}`));
+    // Without this, a silently-never-connecting client looks identical in the
+    // log to a working one, since only the error path said anything.
+    this.mqttClient.on('connect', () => this.log.info(`Connected to MQTT broker at ${url}.`));
     if (this.config.mqttRetain === false) {
       // A publish with retain:false does NOT clear a previously-retained message —
       // the broker keeps serving the last retained one until something explicitly
@@ -343,6 +352,17 @@ class WithingsEnvironmentDataPlatform {
 
     if (unpublished.length > 0) {
       this.persistState();
+      const first = this.formatStaleDateTime(unpublished[0][0]);
+      const last = this.formatStaleDateTime(unpublished[unpublished.length - 1][0]);
+      const range =
+        unpublished.length === 1
+          ? `${first.date} ${first.time}`
+          : `${first.date} ${first.time} to ${last.date} ${last.time}`;
+      this.log.info(`Published ${unpublished.length} reading(s) to MQTT (${range}).`);
+    } else {
+      // Distinguishes "nothing new to send" from "never connected/never tried",
+      // which otherwise look the same from the log alone.
+      this.log.debug('No new readings to publish to MQTT; nothing newer than the last published reading.');
     }
   }
 
