@@ -486,6 +486,12 @@ class WithingsEnvironmentDataPlatform {
     };
   }
 
+  // Same Config UI boolean-default rendering quirk as mqttRetain (see
+  // getMqttRetain), so "on by default" is a runtime default, not a schema one.
+  getSendStaleDataNotification() {
+    return this.config.sendStaleDataNotification !== false;
+  }
+
   getStaleDataThresholdHours() {
     const threshold = Number(this.config.staleDataWarningThresholdHours);
     return Number.isFinite(threshold) && threshold >= 1 ? threshold : 4;
@@ -519,10 +525,12 @@ class WithingsEnvironmentDataPlatform {
       if (!alreadyNotifiedForThisReading) {
         this.staleNotifiedForReadingDate = this.lastReadingDate;
         this.persistState();
-        await this.sendNtfyNotification(
-          `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
-          'Homebridge: Withings Environment Data is out of date'
-        );
+        if (this.getSendStaleDataNotification()) {
+          await this.sendNtfyNotification(
+            `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
+            'Homebridge: Withings Environment Data is out of date'
+          );
+        }
       }
     } else if (this.staleNotifiedForReadingDate !== null) {
       this.staleNotifiedForReadingDate = null;

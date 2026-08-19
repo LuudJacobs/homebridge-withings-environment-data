@@ -137,6 +137,11 @@
         "minimum": 1,
         "description": "If the newest CO2/temperature reading from the scale itself is older than this many hours, log a warning, show \"No Response\" in the Home app, and send a notification."
       },
+      "sendStaleDataNotification": {
+        "title": "Send Stale Data Notification",
+        "type": "boolean",
+        "description": "Send an ntfy notification when data goes stale (requires ntfy.sh Notification Topic below). The log warning and \"No Response\" in the Home app happen either way."
+      },
       "ntfyTopic": {
         "title": "ntfy.sh Notification Topic",
         "type": "string",
@@ -190,6 +195,7 @@
     "pollIntervalMinutes",
     "noResponseAfterMissedPolls",
     "staleDataWarningThresholdHours",
+    "sendStaleDataNotification",
     "ntfyTopic"
   ]
 }
