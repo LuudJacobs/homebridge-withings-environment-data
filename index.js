@@ -304,9 +304,17 @@ class WithingsEnvironmentDataPlatform {
   // synced a backlog of readings (e.g. after being offline) gets backfilled on
   // the MQTT side rather than collapsed into one message. HomeKit is
   // unaffected: it only ever shows the single newest value (see applyReading).
+  //
+  // Deliberately NOT gated on isDataStale(): that reflects whether the newest
+  // known reading is old relative to *now*, which can still be true right
+  // after a real recovery (e.g. the scale's own buffered backlog syncs, but
+  // its newest point is still older than the threshold). Gating on that would
+  // strand genuinely new, never-before-published backlog until an even
+  // fresher point arrives later. Dedup below (lastPublishedMqttDate) already
+  // prevents ever republishing the same reading, which is the only thing this
+  // gate needs to guard against.
   publishMqttReadings(co2Series, tempSeries) {
     if (!this.mqttClient) return;
-    if (this.isDataStale()) return;
 
     const byDate = new Map();
     for (const point of co2Series) {

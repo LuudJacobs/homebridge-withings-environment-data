@@ -62,9 +62,10 @@ turned on or off in Configuration:
   readings internally before it syncs, and this backfills that gap instead
   of collapsing it into one message. Each is published in the order it was
   actually recorded, oldest first. Messages are retained by default.
-  Publishing pauses entirely once the newest known reading is stale (see
-  Stale Data Warning Threshold below) and resumes (with any accumulated
-  backlog) once a fresh reading comes in.
+  Publishing only ever sends readings not already sent before (tracked
+  independently of HomeKit's staleness check below), so it keeps working
+  even if the newest available reading is itself still old by the time it
+  arrives.
 
 ### Configuration
 
