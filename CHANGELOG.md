@@ -6,6 +6,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+- "Send Stale Data Notification" checkbox (default on): lets the ntfy
+  notification for stale data be turned off independently of the log
+  warning and "No Response" in the Home app, which still happen either way
+- Log line confirming a successful MQTT broker connection, and one per poll
+  reporting how many readings were published and over what time range
+  (previously only connection *errors* were logged, so a client that never
+  connected looked the same in the log as a working one)
+
+### Fixed
+- MQTT backfill no longer gets stuck once the newest known reading is
+  itself still stale by the time it's fetched (e.g. the scale recovers
+  from an outage, but the newest synced point is still older than the
+  Stale Data Warning Threshold). Publishing is now gated purely on
+  whether a reading has already been sent, not on wall-clock staleness
+- MQTT backfill no longer strands readings on the first run after
+  upgrading: the "last published" marker was seeded from the newest
+  reading the *poller* had seen rather than the newest actually
+  *published*, silently skipping everything in between
+
 ## [1.4.0] - 2026-08-19
 
 ### Added

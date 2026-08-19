@@ -142,11 +142,17 @@ class WithingsEnvironmentDataPlatform {
     this.lastReadingDate = state.lastReadingDate ?? null;
     // Unix seconds of the newest reading already published to MQTT, used to
     // backfill any points buffered by the scale since the last publish rather
-    // than only ever sending the single newest one. Defaults to the already-
-    // known lastReadingDate (if any) on first boot after upgrading to this
-    // feature, so existing installs don't replay their entire pre-existing
-    // history — only genuinely new backlog from here on.
-    this.lastPublishedMqttDate = state.lastPublishedMqttDate ?? state.lastReadingDate ?? null;
+    // than only ever sending the single newest one.
+    //
+    // Deliberately NOT seeded from lastReadingDate when absent: that tracks the
+    // newest reading the *poller* has seen, which is not the same as the newest
+    // reading actually *published*. Seeding from it silently strands everything
+    // in between (found live: ~12h of readings were skipped on upgrade because
+    // lastReadingDate had moved on while MQTT publishing was blocked). Starting
+    // at null instead republishes at most one window on first run, which the
+    // watermark then dedups from — failing toward a duplicate rather than
+    // toward permanent data loss.
+    this.lastPublishedMqttDate = state.lastPublishedMqttDate ?? null;
     // The readingDate (unix seconds) we last sent a stale-data *notification* for,
     // or null if not currently in a notified state. The log warning itself repeats
     // every poll while data stays stale (like missed-poll-cycle failures do), but
@@ -265,6 +271,9 @@ class WithingsEnvironmentDataPlatform {
       password: this.config.mqttPassword || undefined,
     });
     this.mqttClient.on('error', (err) => this.log.warn(`MQTT connection error: ${err.message}`));
+    // Without this, a silently-never-connecting client looks identical in the
+    // log to a working one, since only the error path said anything.
+    this.mqttClient.on('connect', () => this.log.info(`Connected to MQTT broker at ${url}.`));
     if (this.config.mqttRetain === false) {
       // A publish with retain:false does NOT clear a previously-retained message —
       // the broker keeps serving the last retained one until something explicitly
@@ -304,9 +313,17 @@ class WithingsEnvironmentDataPlatform {
   // synced a backlog of readings (e.g. after being offline) gets backfilled on
   // the MQTT side rather than collapsed into one message. HomeKit is
   // unaffected: it only ever shows the single newest value (see applyReading).
+  //
+  // Deliberately NOT gated on isDataStale(): that reflects whether the newest
+  // known reading is old relative to *now*, which can still be true right
+  // after a real recovery (e.g. the scale's own buffered backlog syncs, but
+  // its newest point is still older than the threshold). Gating on that would
+  // strand genuinely new, never-before-published backlog until an even
+  // fresher point arrives later. Dedup below (lastPublishedMqttDate) already
+  // prevents ever republishing the same reading, which is the only thing this
+  // gate needs to guard against.
   publishMqttReadings(co2Series, tempSeries) {
     if (!this.mqttClient) return;
-    if (this.isDataStale()) return;
 
     const byDate = new Map();
     for (const point of co2Series) {
@@ -335,6 +352,17 @@ class WithingsEnvironmentDataPlatform {
 
     if (unpublished.length > 0) {
       this.persistState();
+      const first = this.formatStaleDateTime(unpublished[0][0]);
+      const last = this.formatStaleDateTime(unpublished[unpublished.length - 1][0]);
+      const range =
+        unpublished.length === 1
+          ? `${first.date} ${first.time}`
+          : `${first.date} ${first.time} to ${last.date} ${last.time}`;
+      this.log.info(`Published ${unpublished.length} reading(s) to MQTT (${range}).`);
+    } else {
+      // Distinguishes "nothing new to send" from "never connected/never tried",
+      // which otherwise look the same from the log alone.
+      this.log.debug('No new readings to publish to MQTT; nothing newer than the last published reading.');
     }
   }
 
@@ -486,6 +514,12 @@ class WithingsEnvironmentDataPlatform {
     };
   }
 
+  // Same Config UI boolean-default rendering quirk as mqttRetain (see
+  // getMqttRetain), so "on by default" is a runtime default, not a schema one.
+  getSendStaleDataNotification() {
+    return this.config.sendStaleDataNotification !== false;
+  }
+
   getStaleDataThresholdHours() {
     const threshold = Number(this.config.staleDataWarningThresholdHours);
     return Number.isFinite(threshold) && threshold >= 1 ? threshold : 4;
@@ -519,10 +553,12 @@ class WithingsEnvironmentDataPlatform {
       if (!alreadyNotifiedForThisReading) {
         this.staleNotifiedForReadingDate = this.lastReadingDate;
         this.persistState();
-        await this.sendNtfyNotification(
-          `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
-          'Homebridge: Withings Environment Data is out of date'
-        );
+        if (this.getSendStaleDataNotification()) {
+          await this.sendNtfyNotification(
+            `Temperature and/or CO2 readings haven't been updated since ${date} at ${time}.`,
+            'Homebridge: Withings Environment Data is out of date'
+          );
+        }
       }
     } else if (this.staleNotifiedForReadingDate !== null) {
       this.staleNotifiedForReadingDate = null;

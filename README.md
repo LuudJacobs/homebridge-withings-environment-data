@@ -62,9 +62,10 @@ turned on or off in Configuration:
   readings internally before it syncs, and this backfills that gap instead
   of collapsing it into one message. Each is published in the order it was
   actually recorded, oldest first. Messages are retained by default.
-  Publishing pauses entirely once the newest known reading is stale (see
-  Stale Data Warning Threshold below) and resumes (with any accumulated
-  backlog) once a fresh reading comes in.
+  Publishing only ever sends readings not already sent before (tracked
+  independently of HomeKit's staleness check below), so it keeps working
+  even if the newest available reading is itself still old by the time it
+  arrives.
 
 ### Configuration
 
@@ -104,9 +105,13 @@ Fields:
 - **Stale Data Warning Threshold (hours)**: if the newest reading from the
   scale itself (not the plugin's poll) is older than this many hours — e.g.
   nobody's stood on the scale in a while — a warning is logged on every
-  poll for as long as it stays stale, the sensors show "No Response" in the
-  Home app, and (if ntfy Topic is set) a single notification is sent for
-  that stale reading. Default 4. This is separate from poll failures.
+  poll for as long as it stays stale, and the sensors show "No Response" in
+  the Home app. Default 4. This is separate from poll failures.
+- **Send Stale Data Notification** (default on): whether a stale reading
+  additionally sends a single ntfy notification (requires ntfy.sh
+  Notification Topic below). The log warning and "No Response" in the Home
+  app happen either way, so turn this off if the unresponsive sensor is
+  signal enough on its own.
 - **ntfy.sh Notification Topic** (optional): if set, sends a push notification via
   [ntfy.sh](https://ntfy.sh) to this topic the first time a poll fails
   (not repeated on every subsequent failure in the same streak; only once
