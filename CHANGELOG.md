@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.5.0] - 2026-08-19
+
 ### Added
 - "Send Stale Data Notification" checkbox (default on): lets the ntfy
   notification for stale data be turned off independently of the log
