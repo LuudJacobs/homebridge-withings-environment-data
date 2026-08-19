@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed
+- MQTT backfill no longer gets stuck once the newest known reading is
+  itself still stale by the time it's fetched (e.g. the scale recovers
+  from an outage, but the newest synced point is still older than the
+  Stale Data Warning Threshold). Publishing is now gated purely on
+  whether a reading has already been sent, not on wall-clock staleness
+
 ## [1.4.0] - 2026-08-19
 
 ### Added
