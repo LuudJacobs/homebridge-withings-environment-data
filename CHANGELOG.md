@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.6.0] - 2026-08-21
+
 ### Added
 - "Requires authentication" checkbox in the MQTT fieldset; Username and
   Password only appear (and are only sent to the broker) when it's checked
