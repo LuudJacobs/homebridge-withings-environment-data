@@ -87,13 +87,12 @@
       "mqttHost": {
         "title": "Host",
         "type": "string",
-        "default": "localhost",
-        "description": "Broker hostname or IP address."
+        "default": "localhost:1883",
+        "description": "Broker hostname or IP address, including port."
       },
-      "mqttPort": {
-        "title": "Port",
-        "type": "integer",
-        "default": 1883
+      "mqttRequiresAuth": {
+        "title": "Requires authentication",
+        "type": "boolean"
       },
       "mqttUsername": {
         "title": "Username",
@@ -172,9 +171,19 @@
       "items": [
         "publishToMqtt",
         "mqttHost",
-        "mqttPort",
-        "mqttUsername",
-        "mqttPassword",
+        "mqttRequiresAuth",
+        {
+          "key": "mqttUsername",
+          "condition": {
+            "functionBody": "return model.mqttRequiresAuth === true;"
+          }
+        },
+        {
+          "key": "mqttPassword",
+          "condition": {
+            "functionBody": "return model.mqttRequiresAuth === true;"
+          }
+        },
         "mqttLastSeen",
         "mqttRetain"
       ]

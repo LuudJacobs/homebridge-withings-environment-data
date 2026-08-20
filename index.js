@@ -256,19 +256,38 @@ class WithingsEnvironmentDataPlatform {
     return this.config.publishToMqtt === true;
   }
 
+  // mqttHost is a single "host[:port]" field; older configs saved before that
+  // merge may still have a separate mqttPort value sitting in config.json
+  // (config UI stops writing it once resaved, but doesn't retroactively
+  // delete it), so fall back to that before the hardcoded default.
+  getMqttHostAndPort() {
+    const raw = this.config.mqttHost || '';
+    const colonIndex = raw.lastIndexOf(':');
+    if (colonIndex > -1) {
+      const host = raw.slice(0, colonIndex);
+      const port = Number(raw.slice(colonIndex + 1));
+      if (host && Number.isFinite(port) && port > 0) {
+        return { host, port };
+      }
+    }
+    const legacyPort = Number(this.config.mqttPort);
+    return { host: raw, port: Number.isFinite(legacyPort) && legacyPort > 0 ? legacyPort : 1883 };
+  }
+
   connectMqtt() {
     if (!this.getPublishToMqtt()) return;
 
-    if (!this.config.mqttHost) {
+    const { host, port } = this.getMqttHostAndPort();
+    if (!host) {
       this.log.warn('Publish to MQTT is enabled but no MQTT Host is configured; MQTT publishing is disabled.');
       return;
     }
 
-    const port = Number(this.config.mqttPort);
-    const url = `mqtt://${this.config.mqttHost}:${Number.isFinite(port) && port > 0 ? port : 1883}`;
+    const url = `mqtt://${host}:${port}`;
+    const requiresAuth = this.config.mqttRequiresAuth === true;
     this.mqttClient = mqtt.connect(url, {
-      username: this.config.mqttUsername || undefined,
-      password: this.config.mqttPassword || undefined,
+      username: requiresAuth ? this.config.mqttUsername || undefined : undefined,
+      password: requiresAuth ? this.config.mqttPassword || undefined : undefined,
     });
     this.mqttClient.on('error', (err) => this.log.warn(`MQTT connection error: ${err.message}`));
     // Without this, a silently-never-connecting client looks identical in the
