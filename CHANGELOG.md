@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+- Config UI: Authentication fieldset now starts collapsed
+- Config UI: "Expose sensors as HomeKit Accessories" moved below the Air
+  Quality fieldset
+- Host field's description now notes it defaults to port 1883 when the
+  port is omitted
+
 ## [1.6.1] - 2026-08-21
 
 ### Fixed
