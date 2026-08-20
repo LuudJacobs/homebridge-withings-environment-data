@@ -93,15 +93,16 @@ Fields:
   Anything above the Inferior boundary is reported as Poor.
 - **Expose sensors as HomeKit Accessories**: see [Usage](#usage) above.
   Default on.
-- **Publish to MQTT / Host / Port / Username / Password / Last Seen /
-  Retain**: see [Usage](#usage) above. Publishing is off by default; Port
-  defaults to 1883. Username/Password are optional, for brokers that
-  require auth. **Last Seen** controls the format of the `last_seen`
-  field, which always reflects the time the scale actually took the
-  measurement (not when the plugin polled or published it): `ISO_8601`
-  (default, UTC), `ISO_8601 local` (with UTC offset), `epoch`
-  (milliseconds), or `disabled` to omit the field entirely. Retain is on
-  by default.
+- **Publish to MQTT / Host / Requires authentication / Username / Password /
+  Last Seen / Retain**: see [Usage](#usage) above. Publishing is off by
+  default. **Host** includes the port, e.g. `localhost:1883` (the
+  default). Username/Password only apply, and only appear, when
+  **Requires authentication** is checked. **Last Seen** controls the
+  format of the `last_seen` field, which always reflects the time the
+  scale actually took the measurement (not when the plugin polled or
+  published it): `ISO_8601` (default, UTC), `ISO_8601 local` (with UTC
+  offset), `epoch` (milliseconds), or `disabled` to omit the field
+  entirely. Retain is on by default.
 - **Stale Data Warning Threshold (hours)**: if the newest reading from the
   scale itself (not the plugin's poll) is older than this many hours — e.g.
   nobody's stood on the scale in a while — a warning is logged on every
