@@ -6,6 +6,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.6.0] - 2026-08-21
+
+### Added
+- "Requires authentication" checkbox in the MQTT fieldset; Username and
+  Password only appear (and are only sent to the broker) when it's checked
+
+### Changed
+- MQTT Host and Port merged into a single "Host" field including the port,
+  e.g. `localhost:1883` (the new default)
+- Publishing to npm now happens automatically via GitHub Actions on tagged
+  releases, using npm's OIDC trusted publishing (no npm tokens in CI)
+
 ## [1.5.0] - 2026-08-19
 
 ### Added
