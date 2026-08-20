@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.6.2] - 2026-08-21
+
 ### Changed
 - Config UI: Authentication fieldset now starts collapsed
 - Config UI: "Expose sensors as HomeKit Accessories" moved below the Air
