@@ -96,8 +96,9 @@ Fields:
 - **Publish to MQTT / Host / Requires authentication / Username / Password /
   Last Seen / Retain**: see [Usage](#usage) above. Publishing is off by
   default. **Host** includes the port, e.g. `localhost:1883` (the
-  default). Username/Password only apply, and only appear, when
-  **Requires authentication** is checked. **Last Seen** controls the
+  default); if the port is omitted it defaults to 1883. Username/Password
+  only apply, and only appear, when **Requires authentication** is
+  checked. **Last Seen** controls the
   format of the `last_seen` field, which always reflects the time the
   scale actually took the measurement (not when the plugin polled or
   published it): `ISO_8601` (default, UTC), `ISO_8601 local` (with UTC

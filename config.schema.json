@@ -88,7 +88,7 @@
         "title": "Host",
         "type": "string",
         "default": "localhost:1883",
-        "description": "Broker hostname or IP address, including port."
+        "description": "Broker hostname or IP address, including port. Defaults to port 1883 if the port is omitted."
       },
       "mqttRequiresAuth": {
         "title": "Requires authentication",
@@ -154,7 +154,7 @@
       "type": "fieldset",
       "title": "Authentication",
       "expandable": true,
-      "expanded": true,
+      "expanded": false,
       "items": [
         "email",
         "password",
@@ -162,7 +162,6 @@
         "trustCookieValue"
       ]
     },
-    "exposeAsHomekitAccessories",
     {
       "type": "fieldset",
       "title": "MQTT",
@@ -201,6 +200,7 @@
         "airQualityInferiorMaxPpm"
       ]
     },
+    "exposeAsHomekitAccessories",
     "pollIntervalMinutes",
     "noResponseAfterMissedPolls",
     "staleDataWarningThresholdHours",
