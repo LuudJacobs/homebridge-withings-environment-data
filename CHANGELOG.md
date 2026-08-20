@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+## [1.6.1] - 2026-08-21
+
+### Fixed
+- Publish workflow's CI Node version bumped to 22 — the first real run
+  failed at `npm install -g npm@latest`, since the latest npm now
+  requires Node `^22.22.2 || ^24.15.0 || >=26.0.0` and the workflow had
+  pinned Node 20
+
 ## [1.6.0] - 2026-08-21
 
 ### Added
