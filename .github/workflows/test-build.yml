@@ -1,78 +1,193 @@
+# Builds the plugin on GitHub and hangs the packed tarball off a rolling
+# prerelease, so the Pi installs something already built instead of compiling
+# it on the device.
+#
+# Nothing here touches the npm registry. The automatic GITHUB_TOKEN is enough.
+#
+# ---------------------------------------------------------------------------
+# Fill in before use:
+#   22   the lowest major in package.json engines.node, quoted,
+#                    e.g. '20' or '22'
+#   test    the branch test builds are cut from, normally: test
+#
+# Everything else is derived at run time: the package name and version come
+# from package.json, the repository and default branch from the event payload.
+# ---------------------------------------------------------------------------
+
 name: Test build
 
 on:
   push:
-    branches:
-      - test
+    branches: [test]
   workflow_dispatch:
 
 permissions:
   contents: write
 
+# Two pushes in quick succession would otherwise race on the rolling release,
+# and the prune step of one run could delete the other run's fresh asset.
+concurrency:
+  group: test-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # A release merges main back into test, which pushes to test without
-  # introducing anything new to test. Skip the build in that case: test's
-  # content is then identical to the released main.
+  # After a release, the default branch is merged back into the test branch.
+  # That push carries nothing the default branch does not already have, so a
+  # test build of it would be a copy of the release under a throwaway version.
+  #
+  # Trees are compared rather than commit messages: this catches the merge
+  # whether it fast-forwarded or made a merge commit, and does not depend on
+  # anybody wording a commit a particular way. The compare endpoint reports no
+  # changed files exactly when the two trees are identical.
   gate:
     runs-on: ubuntu-latest
     outputs:
       build: ${{ steps.check.outputs.build }}
     steps:
-      - uses: actions/checkout@v4
-
       - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.repository.default_branch }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "${{ github.event_name }}" != "push" ]; then
+            echo "Started by hand, so there is no merge to recognise."
             echo "build=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          git fetch --depth=1 origin main
-          if [ "$(git rev-parse 'HEAD^{tree}')" = "$(git rev-parse 'FETCH_HEAD^{tree}')" ]; then
+
+          changed=$(gh api "repos/${{ github.repository }}/compare/${BASE}...${{ github.sha }}" \
+            --jq '.files | length' 2>/dev/null || echo unknown)
+          echo "files differing from ${BASE}: ${changed}"
+
+          if [ "$changed" = "0" ]; then
             echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "Skipped: test is identical to the released main, so there is nothing new to test." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "## Skipped"
+              echo
+              echo "This push leaves the test branch identical to \`${BASE}\`, so it is a"
+              echo "merge back rather than something new to test."
+            } >> "$GITHUB_STEP_SUMMARY"
           else
+            # Anything else, an unknown comparison included, builds: a needless
+            # build costs a minute, a silently missing one costs an afternoon.
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
 
-  test-build:
+  build:
     needs: gate
     if: needs.gate.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: '22'
+          cache: npm
 
-      - name: Install dependencies
+      # A lockfile is committed, so the exact tree that was tested is installed.
+      - name: Install
         run: npm ci
 
-      # This plugin is plain JavaScript and has no build step. Nothing is
-      # compiled; npm pack ships index.js, lib/ and config.schema.json as-is.
+      # --if-present so the same file works for the plain-JavaScript plugins
+      # that have nothing to compile.
+      - name: Build
+        run: npm run build --if-present
 
-      - name: Stamp a unique prerelease version (runner only, never committed)
+      # A version no other build has, so an install on the Pi is never answered
+      # out of a cache. It lives in the runner only: --no-git-tag-version means
+      # nothing is committed and nothing is tagged.
+      - name: Stamp a version for this run
         run: npm version prerelease --preid=test.${{ github.run_number }} --no-git-tag-version
 
-      - name: Pack tarball
+      - name: Pack
         id: pack
-        run: echo "tarball=$(npm pack | tail -n 1)" >> "$GITHUB_OUTPUT"
+        run: |
+          npm pack --json > pack.json
+          tarball=$(jq -r '.[0].filename' pack.json)
+          # Scoped names are reported with a slash but written with a dash.
+          [ -f "$tarball" ] || tarball=$(ls -1 ./*.tgz | head -n1 | xargs basename)
 
-      - name: Publish tarball as a prerelease asset
-        uses: softprops/action-gh-release@v2
+          name=$(jq -r '.[0].name' pack.json)
+          # The prefix the tarball is named after, so the paste-in one-liner can
+          # clear out whatever was downloaded last time.
+          glob=$(printf '%s' "$name" | sed 's#^@##; s#/#-#')
+
+          {
+            echo "tarball=$tarball"
+            echo "glob=$glob"
+            echo "version=$(jq -r '.[0].version' pack.json)"
+          } >> "$GITHUB_OUTPUT"
+          rm -f pack.json
+
+      # One tag, reused: the newest test build is always in the same place.
+      # Not named after the branch, or the tag and the branch would be two refs
+      # with one spelling and git would start asking which you meant.
+      - name: Publish it as a prerelease
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: test-build
           name: Test build
           prerelease: true
-          files: "*.tgz"
+          files: '*.tgz'
+          body: |
+            Prebuilt test tarball, version `${{ steps.pack.outputs.version }}`,
+            from `${{ github.ref_name }}` at ${{ github.sha }} (run ${{ github.run_number }}).
 
-      - name: Write install command to the run summary
+            The run summary has the install one-liner.
+
+      # Only the build somebody would install is worth keeping. Pruned after the
+      # upload rather than before it, so a failed upload never leaves the
+      # release with nothing on it.
+      - name: Drop the builds before this one
+        env:
+          GH_TOKEN: ${{ github.token }}
+          KEEP: ${{ steps.pack.outputs.tarball }}
         run: |
-          URL="https://github.com/${{ github.repository }}/releases/download/test-build/${{ steps.pack.outputs.tarball }}"
+          gh api "repos/${{ github.repository }}/releases/tags/test-build" \
+            --jq '.assets[] | select(.name != env.KEEP) | "\(.id) \(.name)"' |
+          while read -r id name; do
+            echo "dropping $name"
+            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"
+          done
+
+      # The whole thing, ready to paste, on the run's own page.
+      #
+      # A private repository answers 404 to an unauthenticated download, and
+      # `npm i <url>` has nowhere to put a token. The asset endpoint of the API
+      # does take one, so the file is fetched first and installed off the disk.
+      # A public repository needs none of that and gets the plain URL.
+      - name: Say how to install it
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          GLOB: ${{ steps.pack.outputs.glob }}
+          PRIVATE: ${{ github.event.repository.private }}
+        run: |
+          if [ "$PRIVATE" = "true" ]; then
+            id=$(gh api "repos/${{ github.repository }}/releases/tags/test-build" \
+              --jq ".assets[] | select(.name==\"$TARBALL\") | .id")
+            url="https://api.github.com/repos/${{ github.repository }}/releases/assets/${id}"
+            cmd="rm -f ${GLOB}-*.tgz && curl -fL -H \"Authorization: Bearer \$GITHUB_TOKEN\" -H 'Accept: application/octet-stream' -o ${TARBALL} ${url} && npm i ./${TARBALL}"
+            note='Needs `GITHUB_TOKEN` exported in that shell, set to a PAT that can read this repository.'
+          else
+            url="https://github.com/${{ github.repository }}/releases/download/test-build/${TARBALL}"
+            cmd="rm -f ${GLOB}-*.tgz && curl -fLO ${url} && npm i ./${TARBALL}"
+            note='No token needed: this repository is public.'
+          fi
+
           {
-            echo "## Install this test build"
+            echo "## Install this build"
+            echo
+            echo "Run it in the Homebridge directory, from \`hb-shell\`."
+            echo
+            echo "$note"
             echo
             echo '```bash'
-            echo "npm i $URL"
+            echo "$cmd"
             echo '```'
+            echo
+            echo "Then \`exit\` and \`sudo hb-service restart\`."
+            echo
+            echo "Version \`${{ steps.pack.outputs.version }}\` from commit \`${{ github.sha }}\`."
           } >> "$GITHUB_STEP_SUMMARY"
