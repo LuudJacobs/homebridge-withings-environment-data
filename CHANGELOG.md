@@ -5,6 +5,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+
+## [1.6.5] - 2026-08-27
+
+### Changed
 - CI: both workflows replaced with the shared templates. Test builds now
   prune superseded tarballs and print a full download-and-install one-liner;
   publishing checks the tag against package.json and signs the package with
