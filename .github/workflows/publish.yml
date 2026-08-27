@@ -1,27 +1,97 @@
+# Publishes a released version to npm, using npm's OIDC trusted publishing.
+# There is no NPM_TOKEN anywhere: the registry is told to trust this repository
+# and this workflow file by name, so the two have to agree.
+#
+# Fired by the version tag pushed after the merge to the default branch. Keyed
+# on 'v*' rather than '*', so moving any other tag afterwards does not retrigger
+# a publish of an already-published version.
+#
+# ---------------------------------------------------------------------------
+# PUBLIC PACKAGES ONLY, and pair it with test-build.yml, not release-build.yml:
+# once a version is on npm, the released tarball has a better home than a
+# GitHub release asset.
+#
+# Fill in before use:
+#   22   the lowest major in package.json engines.node, quoted,
+#                    e.g. '20' or '22'
+#
+# On npmjs.com the package's trusted publisher must name this repository and
+# this filename. Renaming the file breaks the publish until it is updated there.
+# ---------------------------------------------------------------------------
+
 name: Publish to npm
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
 
 permissions:
   contents: read
+  # What trusted publishing runs on. Without it npm has no identity to check.
   id-token: write
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+          cache: npm
 
-      - run: npm install -g npm@latest
+      # Trusted publishing needs a recent npm CLI, newer than some Node lines
+      # still bundle.
+      - name: Update npm
+        run: npm install -g npm@latest
 
-      - run: npm ci
+      - name: Install
+        run: npm ci
 
-      - run: npm publish
+      # --if-present throughout, so the same file works for the plugins that
+      # have no lint, no tests, or nothing to compile. Anything that does exist
+      # has to pass: this is the last gate before the registry, which does not
+      # let you take a version back.
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Test
+        run: npm test --if-present
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Check the tag matches package.json
+        run: |
+          pkg=$(node -p "require('./package.json').version")
+          tag="${GITHUB_REF_NAME#v}"
+          echo "package.json: ${pkg} / tag: ${tag}"
+          if [ "$pkg" != "$tag" ]; then
+            echo "::error::package.json is ${pkg} but the tag is ${tag}. Fix the version before tagging."
+            exit 1
+          fi
+
+      # --provenance signs the package with what built it, which is the point of
+      # going through OIDC in the first place.
+      - name: Publish
+        run: npm publish --provenance --access public
+
+      - name: Say what went out
+        run: |
+          version=$(node -p "require('./package.json').version")
+          name=$(node -p "require('./package.json').name")
+          {
+            echo "## Published"
+            echo
+            echo "\`${name}@${version}\` is on npm."
+            echo
+            echo '```bash'
+            echo "npm i ${name}@${version}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
