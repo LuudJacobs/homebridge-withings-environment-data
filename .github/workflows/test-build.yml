@@ -1,0 +1,52 @@
+name: Test build
+
+on:
+  push:
+    branches:
+      - test
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      # This plugin is plain JavaScript and has no build step. Nothing is
+      # compiled; npm pack ships index.js, lib/ and config.schema.json as-is.
+
+      - name: Stamp a unique prerelease version (runner only, never committed)
+        run: npm version prerelease --preid=test.${{ github.run_number }} --no-git-tag-version
+
+      - name: Pack tarball
+        id: pack
+        run: echo "tarball=$(npm pack | tail -n 1)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish tarball as a prerelease asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: test-build
+          name: Test build
+          prerelease: true
+          files: "*.tgz"
+
+      - name: Write install command to the run summary
+        run: |
+          URL="https://github.com/${{ github.repository }}/releases/download/test-build/${{ steps.pack.outputs.tarball }}"
+          {
+            echo "## Install this test build"
+            echo
+            echo '```bash'
+            echo "npm i $URL"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
