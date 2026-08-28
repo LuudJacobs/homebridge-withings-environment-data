@@ -168,8 +168,8 @@ jobs:
             id=$(gh api "repos/${{ github.repository }}/releases/tags/test-build" \
               --jq ".assets[] | select(.name==\"$TARBALL\") | .id")
             url="https://api.github.com/repos/${{ github.repository }}/releases/assets/${id}"
-            cmd="rm -f ${GLOB}-*.tgz && curl -fL -H \"Authorization: Bearer \$GITHUB_TOKEN\" -H 'Accept: application/octet-stream' -o ${TARBALL} ${url} && npm i ./${TARBALL}"
-            note='Needs `GITHUB_TOKEN` exported in that shell, set to a PAT that can read this repository.'
+            cmd="rm -f ${GLOB}-*.tgz && curl -fL -H @/var/lib/homebridge/.gh_header -H 'Accept: application/octet-stream' -o ${TARBALL} ${url} && npm i ./${TARBALL}"
+            note='Needs `/var/lib/homebridge/.gh_header` on the Pi, one line: `Authorization: Bearer <PAT that can read this repository>`.'
           else
             url="https://github.com/${{ github.repository }}/releases/download/test-build/${TARBALL}"
             cmd="rm -f ${GLOB}-*.tgz && curl -fLO ${url} && npm i ./${TARBALL}"
