@@ -9,10 +9,12 @@
 # ---------------------------------------------------------------------------
 # PUBLIC PACKAGES ONLY, and pair it with test-build.yml, not release-build.yml:
 # once a version is on npm, the released tarball has a better home than a
-# GitHub release asset.
+# GitHub release asset. The GitHub release made here carries the changelog
+# section and no tarball, so the tag has notes behind it without offering a
+# second, worse install route.
 #
 # Fill in before use:
-#   22   the lowest major in package.json engines.node, quoted,
+#   <node-version>   the lowest major in package.json engines.node, quoted,
 #                    e.g. '20' or '22'
 #
 # On npmjs.com the package's trusted publisher must name this repository and
@@ -26,7 +28,8 @@ on:
     tags: ['v*']
 
 permissions:
-  contents: read
+  # Creating the GitHub release for the tag.
+  contents: write
   # What trusted publishing runs on. Without it npm has no identity to check.
   id-token: write
 
@@ -82,6 +85,33 @@ jobs:
       - name: Publish
         run: npm publish --provenance --access public
 
+      # What the changelog says about this version, for the release page. Not
+      # every plugin keeps one, and a missing section is not worth failing over.
+      # Written after the publish so it can never end up in the tarball.
+      - name: Collect the release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ -f CHANGELOG.md ]; then
+            awk -v want="$version" '
+              /^## / { on = index($0, want) > 0; next }
+              on { print }
+            ' CHANGELOG.md > release-notes.md
+          fi
+          if [ ! -s release-notes.md ]; then
+            echo "See CHANGELOG.md" > release-notes.md
+          fi
+
+      # No files: the tarball is on npm. This is the notes for the tag, so that
+      # the repository says what changed without anyone opening the changelog.
+      - name: Publish the release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body_path: release-notes.md
+          prerelease: false
+          make_latest: true
+
       - name: Say what went out
         run: |
           version=$(node -p "require('./package.json').version")
@@ -94,4 +124,6 @@ jobs:
             echo '```bash'
             echo "npm i ${name}@${version}"
             echo '```'
+            echo
+            echo "Release: ${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}"
           } >> "$GITHUB_STEP_SUMMARY"
