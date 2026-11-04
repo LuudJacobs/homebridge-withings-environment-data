@@ -6,9 +6,9 @@
 #
 # ---------------------------------------------------------------------------
 # Fill in before use:
-#   22   the lowest major in package.json engines.node, quoted,
+#   <node-version>   the lowest major in package.json engines.node, quoted,
 #                    e.g. '20' or '22'
-#   test    the branch test builds are cut from, normally: test
+#   <test-branch>    the branch test builds are cut from, normally: test
 #
 # Everything else is derived at run time: the package name and version come
 # from package.json, the repository and default branch from the event payload.
@@ -97,8 +97,21 @@ jobs:
       # A version no other build has, so an install on the Pi is never answered
       # out of a cache. It lives in the runner only: --no-git-tag-version means
       # nothing is committed and nothing is tagged.
+      #
+      # Built from whatever package.json already says, rather than from
+      # `npm version prerelease`, which bumps the patch before appending the
+      # suffix. After a release bump that named the tarball a patch above the
+      # release it was built from: 1.11.8-test.20 for the commit that is 1.11.7.
+      #
+      # The run number is what makes it unique, so trimming any suffix already
+      # there and appending one is enough. Note this sorts below the version it
+      # is built from, which is right after a release bump and a version behind
+      # during ordinary work; nothing reads the ordering, since every install
+      # names the tarball by path.
       - name: Stamp a version for this run
-        run: npm version prerelease --preid=test.${{ github.run_number }} --no-git-tag-version
+        run: |
+          base=$(node -p "require('./package.json').version")
+          npm version "${base%%-*}-test.${{ github.run_number }}" --no-git-tag-version
 
       - name: Pack
         id: pack
@@ -139,6 +152,13 @@ jobs:
       # Only the build somebody would install is worth keeping. Pruned after the
       # upload rather than before it, so a failed upload never leaves the
       # release with nothing on it.
+      #
+      # Housekeeping, and it runs after the tarball is already published, so a
+      # stubborn asset is worth a line in the log rather than a failed build and
+      # a mail about one. The delete answers 204 with no body at all, which gh
+      # reads as JSON unless it is told not to print one: without --silent it
+      # ends the step with "unexpected end of JSON input" every time it drops
+      # anything.
       - name: Drop the builds before this one
         env:
           GH_TOKEN: ${{ github.token }}
@@ -148,7 +168,8 @@ jobs:
             --jq '.assets[] | select(.name != env.KEEP) | "\(.id) \(.name)"' |
           while read -r id name; do
             echo "dropping $name"
-            gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"
+            gh api --silent -X DELETE "repos/${{ github.repository }}/releases/assets/$id" \
+              || echo "could not drop $name; leaving it there"
           done
 
       # The whole thing, ready to paste, on the run's own page.
